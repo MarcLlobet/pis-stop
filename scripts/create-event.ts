@@ -18,16 +18,11 @@ import { createCloudinaryClient } from '../src/lib/cloudinary';
 import { parseCloudinaryConfig } from '../src/lib/config';
 import { deriveEventKeys, generateSecret, SECRET_BYTES } from '../src/lib/crypto';
 import { fromBase64Url, safeJsonParse, toBase64Url } from '../src/lib/encoding';
+import { type EventFile, parseEventFile, slugify, stopsOf } from '../src/lib/event-file';
 import { fingerprintOf, generateIdentity } from '../src/lib/identity';
 import { buildInviteUrl } from '../src/lib/invite';
-import { isLatLng } from '../src/lib/meta';
 import { publishEntry } from '../src/lib/repository';
-import type { Bytes, Entry, Stop } from '../src/lib/types';
-
-interface EventFile {
-  readonly name: string;
-  readonly stops: readonly { readonly name: string; readonly lat: number; readonly lng: number }[];
-}
+import type { Bytes, Entry } from '../src/lib/types';
 
 interface Organizer {
   readonly secret: Bytes;
@@ -45,35 +40,9 @@ const fail = (message: string): never => {
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null;
 
-const isEventFile = (value: unknown): value is EventFile =>
-  isRecord(value) &&
-  typeof value['name'] === 'string' &&
-  value['name'].trim() !== '' &&
-  Array.isArray(value['stops']) &&
-  value['stops'].every(
-    (stop: unknown) => isRecord(stop) && typeof stop['name'] === 'string' && isLatLng(stop),
-  );
-
-const slugify = (text: string): string =>
-  text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-
 const toEntries = (event: EventFile, organizerKey: string): readonly Entry[] => [
   { meta: { kind: 'event', name: event.name.trim(), organizerKey }, payload: new Uint8Array(0) },
-  ...event.stops.map((stop, index): Entry<Stop> => ({
-    meta: {
-      kind: 'stop',
-      id: `stop-${index + 1}-${slugify(stop.name)}`.slice(0, 64),
-      name: stop.name.trim(),
-      order: index + 1,
-      position: { lat: stop.lat, lng: stop.lng },
-    },
-    payload: new Uint8Array(0),
-  })),
+  ...stopsOf(event).map((meta): Entry => ({ meta, payload: new Uint8Array(0) })),
 ];
 
 const newOrganizer = async (): Promise<Organizer> => {
@@ -124,10 +93,9 @@ const main = async (): Promise<void> => {
   });
 
   const file = positionals[0] ?? fail('Usage: pnpm event:create <event.json> [--keys file]');
-  const event = safeJsonParse(await readFile(file, 'utf8'));
-  if (!isEventFile(event)) {
-    return fail(`${file} must look like event.example.json`);
-  }
+  const event =
+    parseEventFile(safeJsonParse(await readFile(file, 'utf8'))) ??
+    fail(`${file} must look like event.example.json`);
 
   const cloudinary =
     parseCloudinaryConfig(process.env) ??

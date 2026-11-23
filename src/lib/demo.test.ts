@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fakeToUrl, jpeg } from '../test/fixtures';
+import { fakeToUrl, jpeg, stopEntry } from '../test/fixtures';
 import { avatarSvg, createDemoRepository, demoEntries, tileSvg } from './demo';
 import { generateIdentity } from './identity';
 
@@ -71,5 +71,19 @@ describe('createDemoRepository with a ready-made profile', () => {
     const snapshot = await withMe.load();
     expect(snapshot.profiles.get(me.id)).toMatchObject({ name: 'Dev', avatarUrl: null });
     expect(snapshot.profiles.size).toBe(4);
+  });
+});
+
+describe('createDemoRepository with another route', () => {
+  it('shows the given stops and places the sample photos on them', async () => {
+    const stops = [stopEntry('a', 1).meta, stopEntry('b', 2).meta];
+    const snapshot = await createDemoRepository(
+      { toUrl: fakeToUrl, newId: () => 'x', now: () => new Date() },
+      undefined,
+      { name: 'Correpisos 2026', stops },
+    ).load();
+    expect(snapshot.eventName).toBe('Correpisos 2026');
+    expect(snapshot.stops.map(({ id }) => id)).toEqual(['a', 'b']);
+    expect(snapshot.photos.every(({ stopId }) => stopId === 'a' || stopId === 'b')).toBe(true);
   });
 });

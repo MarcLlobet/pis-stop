@@ -7,6 +7,7 @@ import { FeaturedIcon } from '@/components/foundations/featured-icon/featured-ic
 
 import { useEvent } from '../hooks/use-event';
 import { useIdentity } from '../hooks/use-identity';
+import { useLocalEvent } from '../hooks/use-local-event';
 import { type CloudinaryConfig, createCloudinaryClient } from '../lib/cloudinary';
 import type { EventKeys } from '../lib/crypto';
 import { createDemoRepository } from '../lib/demo';
@@ -45,6 +46,8 @@ export const EventApp = ({ source, onLeave }: EventAppProps) => {
   const identity = useIdentity(browserKeyStore, scope, { autoCreate: autoProfile });
   const devIdentity =
     autoProfile && identity.state.status === 'ready' ? identity.state.identity : null;
+  // In development the demo shows the real route from event.json, if present.
+  const localEvent = useLocalEvent(autoProfile);
 
   const repository = useMemo(() => {
     if (source.kind === 'event') {
@@ -57,11 +60,15 @@ export const EventApp = ({ source, onLeave }: EventAppProps) => {
     if (!autoProfile) {
       return createDemoRepository(browserDeps);
     }
-    // Wait for the identity, so the first load already contains "me".
-    return devIdentity === null
+    // Wait for the identity and event.json, so the first load is already complete.
+    return devIdentity === null || localEvent === undefined
       ? null
-      : createDemoRepository(browserDeps, { identity: devIdentity, name: DEV_PROFILE_NAME });
-  }, [source, autoProfile, devIdentity]);
+      : createDemoRepository(
+          browserDeps,
+          { identity: devIdentity, name: DEV_PROFILE_NAME },
+          localEvent ?? undefined,
+        );
+  }, [source, autoProfile, devIdentity, localEvent]);
   const { state, reload, addPhoto, addProfile } = useEvent(repository);
 
   if (repository === null || state.status === 'loading' || identity.state.status === 'loading') {

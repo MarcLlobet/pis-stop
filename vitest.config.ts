@@ -29,6 +29,7 @@ export default defineConfig({
         'src/platform/**',
         'src/app/map-view.tsx',
         'src/app/base-map.tsx',
+        'src/hooks/use-local-event.ts',
       ],
       thresholds: {
         // The security-relevant code: crypto, signatures, parsing, storage.

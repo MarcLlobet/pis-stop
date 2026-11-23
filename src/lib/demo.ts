@@ -79,12 +79,20 @@ const demoToUrl =
   (bytes, type) =>
     type === SVG ? dataUrl(fromUtf8(bytes)) : toUrl(bytes, type);
 
-export const demoEntries = (): readonly Entry[] => [
+export interface DemoEvent {
+  readonly name: string;
+  readonly stops: readonly Stop[];
+}
+
+const DEMO_EVENT: DemoEvent = { name: 'Correpisos de prova', stops: DEMO_STOPS };
+
+/** The demo data. Photos are spread over the event's first stops. */
+export const demoEntries = (event: DemoEvent = DEMO_EVENT): readonly Entry[] => [
   {
-    meta: { kind: 'event', name: 'Correpisos de prova', organizerKey: 'demo' },
+    meta: { kind: 'event', name: event.name, organizerKey: 'demo' },
     payload: new Uint8Array(0),
   },
-  ...DEMO_STOPS.map((meta): Entry => ({ meta, payload: new Uint8Array(0) })),
+  ...event.stops.map((meta): Entry => ({ meta, payload: new Uint8Array(0) })),
   ...DEMO_FRIENDS.map((friend) =>
     profileEntry(
       friend,
@@ -97,7 +105,7 @@ export const demoEntries = (): readonly Entry[] => [
     ),
   ),
   ...DEMO_PHOTOS.flatMap((photo, index) => {
-    const stop = DEMO_STOPS[photo.stop];
+    const stop = event.stops[photo.stop];
     const author = DEMO_FRIENDS[photo.author];
     return stop && author
       ? [
@@ -133,11 +141,17 @@ const meEntry = ({ identity, name }: DemoMe): Entry =>
 /**
  * A repository that keeps nothing and verifies nothing: uploads only live in
  * the visitor's tab, so the public demo can be played with freely. With `me`,
- * the visitor already has a profile and lands straight on the map.
+ * the visitor already has a profile and lands straight on the map; with
+ * `event`, the demo shows that route instead of the sample one.
  */
-export const createDemoRepository = (deps: RepositoryDeps, me?: DemoMe): EventRepository => {
+export const createDemoRepository = (
+  deps: RepositoryDeps,
+  me?: DemoMe,
+  event?: DemoEvent,
+): EventRepository => {
   const toUrl = demoToUrl(deps.toUrl);
-  const entries = me === undefined ? demoEntries() : [...demoEntries(), meEntry(me)];
+  const base = demoEntries(event);
+  const entries = me === undefined ? base : [...base, meEntry(me)];
   return {
     load: () => Promise.resolve(buildSnapshot(entries, toUrl)),
     publishProfile: (identity, input) =>
