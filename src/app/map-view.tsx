@@ -81,7 +81,10 @@ export const MapView = ({ snapshot, onSelectStop, onOpenPhoto }: MapViewProps) =
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         maxZoom={19}
-        referrerPolicy="no-referrer"
+        // OpenStreetMap blocks tile requests without a Referer (tile usage
+        // policy). `strict-origin` sends only the site's origin: never the
+        // path, and never the #fragment that holds the key.
+        referrerPolicy="strict-origin"
       />
       {route.length > 1 && (
         <Polyline
