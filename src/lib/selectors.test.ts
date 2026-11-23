@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { photoView } from '../test/fixtures';
-import { countByStop, filterByAuthors, loosePhotos, photosOfStop, toggleInSet } from './selectors';
+import { countByStop, filterByAuthors, photosOfStop, placedPhotos, toggleInSet } from './selectors';
 
 const photos = [
   photoView('1', { stopId: 's1', authorId: 'anna' }),
@@ -25,8 +25,8 @@ describe('selectors', () => {
     );
   });
 
-  it('keeps only loose photos that have a position', () => {
-    expect(loosePhotos(photos).map(({ id }) => id)).toEqual(['4']);
+  it('pins every photo that has a location, at a stop or not', () => {
+    expect(placedPhotos(photos).map(({ id }) => id)).toEqual(['1', '2', '3', '4']);
   });
 
   it('filters by author, or returns everything when no author is selected', () => {

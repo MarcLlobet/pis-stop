@@ -4,7 +4,7 @@ import { divIcon, latLngBounds, type LatLngExpression } from 'leaflet';
 import { useMemo } from 'react';
 import { MapContainer, Marker, Polyline } from 'react-leaflet';
 
-import { countByStop, loosePhotos } from '../lib/selectors';
+import { countByStop, type PlacedPhoto, placedPhotos } from '../lib/selectors';
 import type { PhotoView, Snapshot } from '../lib/snapshot';
 import type { LatLng, Stop } from '../lib/types';
 import { BaseMap } from './base-map';
@@ -50,7 +50,7 @@ const stopIcon = (stop: Stop, count: number) =>
     ),
   });
 
-const photoIcon = (photo: PhotoView) =>
+const photoIcon = (photo: PlacedPhoto) =>
   divIcon({
     className: '',
     iconSize: [40, 40],
@@ -64,12 +64,9 @@ const photoIcon = (photo: PhotoView) =>
 
 export const MapView = ({ snapshot, onSelectStop, onOpenPhoto }: MapViewProps) => {
   const counts = useMemo(() => countByStop(snapshot.photos), [snapshot.photos]);
-  const loose = useMemo(() => loosePhotos(snapshot.photos), [snapshot.photos]);
+  const placed = useMemo(() => placedPhotos(snapshot.photos), [snapshot.photos]);
   const route = snapshot.stops.map(({ position }) => toTuple(position));
-  const points = [
-    ...route,
-    ...loose.flatMap(({ position }) => (position ? [toTuple(position)] : [])),
-  ];
+  const points = [...route, ...placed.map(({ position }) => toTuple(position))];
   const bounds = points.length > 1 ? latLngBounds(points).pad(0.2) : undefined;
 
   return (
@@ -94,6 +91,8 @@ export const MapView = ({ snapshot, onSelectStop, onOpenPhoto }: MapViewProps) =
           position={toTuple(stop.position)}
           icon={stopIcon(stop, counts.get(stop.id) ?? 0)}
           title={stop.name}
+          // The itinerary stays readable on top of the photo pins.
+          zIndexOffset={1000}
           eventHandlers={{
             click: () => {
               onSelectStop(stop);
@@ -101,20 +100,18 @@ export const MapView = ({ snapshot, onSelectStop, onOpenPhoto }: MapViewProps) =
           }}
         />
       ))}
-      {loose.map((photo) =>
-        photo.position === null ? null : (
-          <Marker
-            key={photo.id}
-            position={toTuple(photo.position)}
-            icon={photoIcon(photo)}
-            eventHandlers={{
-              click: () => {
-                onOpenPhoto(photo);
-              },
-            }}
-          />
-        ),
-      )}
+      {placed.map((photo) => (
+        <Marker
+          key={photo.id}
+          position={toTuple(photo.position)}
+          icon={photoIcon(photo)}
+          eventHandlers={{
+            click: () => {
+              onOpenPhoto(photo);
+            },
+          }}
+        />
+      ))}
     </MapContainer>
   );
 };

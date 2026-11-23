@@ -1,4 +1,5 @@
 import type { PhotoView } from './snapshot';
+import type { LatLng } from './types';
 
 export const photosOfStop = (photos: readonly PhotoView[], stopId: string): readonly PhotoView[] =>
   photos.filter((photo) => photo.stopId === stopId);
@@ -10,9 +11,14 @@ export const countByStop = (photos: readonly PhotoView[]): ReadonlyMap<string, n
     new Map(),
   );
 
-/** Photos that were not close enough to any stop: they get their own pin. */
-export const loosePhotos = (photos: readonly PhotoView[]): readonly PhotoView[] =>
-  photos.filter((photo) => photo.stopId === null && photo.position !== null);
+export type PlacedPhoto = PhotoView & { readonly position: LatLng };
+
+/**
+ * Every photo with a location gets its own pin, wherever it was taken: at a
+ * flat, on the way, or anywhere else. Stops only mark the itinerary.
+ */
+export const placedPhotos = (photos: readonly PhotoView[]): readonly PlacedPhoto[] =>
+  photos.filter((photo): photo is PlacedPhoto => photo.position !== null);
 
 export const filterByAuthors = (
   photos: readonly PhotoView[],

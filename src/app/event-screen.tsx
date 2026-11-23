@@ -50,12 +50,10 @@ export const EventScreen = ({
   return (
     <div className="flex h-full flex-col bg-primary">
       <header className="flex items-center gap-2 border-b border-secondary px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-brand-secondary">Pis Stop</p>
-          <h1 className="truncate text-lg font-semibold text-primary">
-            {snapshot.eventName ?? 'Correpisos'}
-          </h1>
-        </div>
+        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold text-primary">
+          <span className="text-brand-secondary">Pis Stop</span> –{' '}
+          {snapshot.eventName ?? 'Correpisos'}
+        </h1>
         <Button
           color="tertiary"
           size="sm"
