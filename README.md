@@ -63,7 +63,17 @@ Aquests valors **no són secrets**. A GitHub, posa’ls com a _repository variab
 `CLOUDINARY_UPLOAD_PRESET`. Sense aquestes variables, el deploy surt en mode només-demo. A
 `Settings → Pages`, tria **GitHub Actions** com a font.
 
-### 3. Crear l’event
+### 3. Generar el mapa
+
+El mapa no ve de cap servidor extern: és un extracte de la zona de l’event que es publica amb la
+web. A GitHub, **Actions → Update map → Run workflow** (per defecte, Barcelona; pots posar una
+altra zona com a `oest,sud,est,nord`). El fitxer es desa a `public/map/area.pmtiles` i es
+torna a desplegar sol.
+
+En local també es pot fer amb `pnpm map:extract` (cal `pmtiles` o Go instal·lat). Mentre no
+existeixi, `pnpm dev` fa servir les tessel·les d’OpenStreetMap.
+
+### 4. Crear l’event
 
 ```sh
 cp event.example.json event.json   # event.json està al .gitignore
@@ -73,7 +83,7 @@ pnpm event:create event.json
 Surten l’enllaç d’invitació, el QR i `out/<event>.keys.json`. Guarda aquest últim fora de línia.
 Per afegir pisos més tard: `pnpm event:create mes-pisos.json --keys out/<event>.keys.json`.
 
-### 4. Tancar l’event
+### 5. Tancar l’event
 
 Esborra l’upload preset a Cloudinary. Les fotos es continuen veient, però ja no se’n poden
 penjar més.
@@ -94,7 +104,7 @@ pnpm build
 | Vite + React 19 + TypeScript                                 | Tipatge estricte (`exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`…)          |
 | [Untitled UI](https://www.untitledui.com/react) + React Aria | Components accessibles i icones `@untitledui/icons`                                   |
 | Tailwind CSS 4                                               | El sistema de tokens d’Untitled UI, amb el color de marca de Pis Stop                 |
-| Leaflet + OpenStreetMap                                      | Mapa lleuger i sense clau d’API                                                       |
+| Leaflet + Protomaps                                          | Mapa vectorial allotjat a la mateixa web: cap servidor de mapes extern                |
 | WebCrypto                                                    | HKDF, AES-GCM, ECDSA i SHA-256 natius: cap criptografia feta a mà                     |
 | Vitest + Testing Library                                     | Proves de la lògica (95% de cobertura mínima a `src/lib`) i dels components           |
 | ESLint strict type-checked                                   | `typescript-eslint`, `functional`, `jsx-a11y`, i res d’`innerHTML`                    |

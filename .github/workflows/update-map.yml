@@ -1,0 +1,45 @@
+name: Update map
+
+# Run by hand (Actions → Update map → Run workflow) to (re)generate the
+# self-hosted map for the event area and commit it.
+on:
+  workflow_dispatch:
+    inputs:
+      bbox:
+        description: 'Area as west,south,east,north (default: Barcelona)'
+        required: false
+        default: '2.05,41.32,2.24,41.47'
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to commit public/map/area.pmtiles
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.25'
+          cache: false
+      - run: pnpm install --frozen-lockfile
+      - name: Extract the map
+        # The input goes through an environment variable, never straight into
+        # the shell, and the script validates it (see parseBbox).
+        env:
+          MAP_BBOX: ${{ inputs.bbox }}
+        run: pnpm map:extract
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/map/area.pmtiles
+          git diff --cached --quiet || git commit -m 'Update map extract'
+          git push

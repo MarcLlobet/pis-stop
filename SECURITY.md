@@ -30,7 +30,6 @@ confiar en ningú. L’especificació tècnica exacta és a [docs/PROTOCOL.md](d
 | Algú que llegeix tot el codi públic       | El mateix: el codi no conté cap secret.                                                                                                   |
 | Cloudinary (o qui en controli el compte)  | Veure que existeixen fitxers, quan es pugen, des de quines IP i la mida aproximada. Esborrar-ne. **No pot** llegir-los ni falsificar-los. |
 | GitHub (que serveix la web)               | Veure qui visita la web. Vegeu [El codi que executa el navegador](#4-el-codi-que-executa-el-navegador).                                   |
-| El servidor de mapes d’OpenStreetMap      | Veure la IP i quina zona del mapa mires. Vegeu [Límits](#el-que-no-protegeix).                                                            |
 
 ## Com funciona
 
@@ -99,9 +98,10 @@ Encriptar protegeix de la gent de fora. Les signatures protegeixen de la gent de
 - **Llista blanca d’URL**: l’app només descarrega de `res.cloudinary.com/<el vostre compte>/`. Un
   membre no pot fer que els mòbils dels altres visitin una URL seva per saber-ne la IP.
 - **Límits de mida** a cada descàrrega (1 MiB per entrada, 12 MiB per foto).
-- **Sense galetes ni referrer** a les peticions a Cloudinary. Al servidor de mapes només s’hi
-  envia el domini de la web (`strict-origin`), perquè OpenStreetMap bloqueja les peticions sense
-  Referer. Mai s’hi envia la ruta ni el fragment amb la clau.
+- **Sense galetes ni referrer** a les peticions a Cloudinary.
+- **El mapa és nostre.** Les dades del mapa (un extracte de Protomaps/OpenStreetMap de la zona
+  de l’event) són un fitxer servit des de la mateixa web, `map/area.pmtiles`. Cap servidor de
+  mapes extern sap quina zona mira ningú, i la CSP no permet carregar tessel·les de fora.
 - **Les fotos perden les metadades EXIF** (GPS original, model de càmera…) en redimensionar-les.
 - **Validació estricta** de tot el que es desxifra: camps desconeguts fora, textos amb longitud
   màxima, dates i coordenades vàlides.
@@ -122,6 +122,8 @@ Un atacant també pot entrar per una dependència o pel procés de build.
   estricte de TypeScript.
 - **Components d’Untitled UI copiats sense cap canvi** (vegeu
   [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)), amb una ordre per comparar-los amb l’original.
+- **El mapa es genera amb una eina fixada per versió** (`go-pmtiles` v1.31.2, verificada per la
+  base de checksums de Go) i el fitxer resultant entra al manifest signat de cada desplegament.
 - **Procedència del build**: cada desplegament genera `build-manifest.sha256` (el hash de cada
   fitxer publicat) i GitHub el signa amb una
   [atestació de build](https://docs.github.com/actions/security-guides/using-artifact-attestations).
@@ -162,9 +164,9 @@ Cap sistema és perfecte. Aquests són els límits coneguts, sense maquillatge.
    fitxers, i que tots els fitxers d’un mateix tag van junts. Pot **esborrar** fitxers o deixar de
    servir-los, i ningú se n’adonaria (no hi ha prova que hi siguin tots). No els pot llegir ni
    falsificar.
-7. **El servidor de mapes d’OpenStreetMap veu quina zona mires**, des de quina IP i des de quina
-   web (el domini, no la clau). Com que el mapa es centra en els pisos, això revela
-   aproximadament on són. Una alternativa seria allotjar les tessel·les nosaltres mateixos.
+7. **Qui visita la web sap de quina ciutat és el mapa**: l’extracte del mapa és públic, com la
+   resta de la web. Revela la zona general (per defecte, Barcelona), no els pisos: aquests van
+   xifrats.
 8. **El codi el serveix GitHub a cada visita.** Si algú controlés el compte de GitHub o el
    repositori, podria servir una versió que robés les fotos mentre la mires. És el límit de
    qualsevol aplicació web. El que es pot fer és **comprovar-ho**: l’atestació i el manifest

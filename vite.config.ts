@@ -13,8 +13,9 @@ export const CONTENT_SECURITY_POLICY = [
   "default-src 'none'",
   "script-src 'self'",
   "style-src 'self'",
-  "img-src 'self' blob: data: https://tile.openstreetmap.org",
-  'connect-src https://api.cloudinary.com https://res.cloudinary.com',
+  // The map is self-hosted (public/map/area.pmtiles): no third-party tiles.
+  "img-src 'self' blob: data:",
+  "connect-src 'self' https://api.cloudinary.com https://res.cloudinary.com",
   "font-src 'self'",
   "manifest-src 'self'",
   "base-uri 'none'",

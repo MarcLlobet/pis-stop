@@ -28,6 +28,7 @@ export default defineConfig({
         // Thin adapters over browser-only APIs (canvas, geolocation, IndexedDB, Leaflet).
         'src/platform/**',
         'src/app/map-view.tsx',
+        'src/app/base-map.tsx',
       ],
       thresholds: {
         // The security-relevant code: crypto, signatures, parsing, storage.

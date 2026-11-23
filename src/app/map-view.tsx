@@ -2,11 +2,12 @@ import 'leaflet/dist/leaflet.css';
 
 import { divIcon, type LatLngExpression, latLngBounds } from 'leaflet';
 import { useMemo } from 'react';
-import { MapContainer, Marker, Polyline, TileLayer } from 'react-leaflet';
+import { MapContainer, Marker, Polyline } from 'react-leaflet';
 
 import { countByStop, loosePhotos } from '../lib/selectors';
 import type { PhotoView, Snapshot } from '../lib/snapshot';
 import type { LatLng, Stop } from '../lib/types';
+import { BaseMap } from './base-map';
 
 interface MapViewProps {
   readonly snapshot: Snapshot;
@@ -78,16 +79,9 @@ export const MapView = ({ snapshot, onSelectStop, onOpenPhoto }: MapViewProps) =
       // map, so dialogs and the upload button always stay on top of it.
       className="isolate size-full"
       zoomControl={false}
+      maxZoom={18}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        maxZoom={19}
-        // OpenStreetMap blocks tile requests without a Referer (tile usage
-        // policy). `strict-origin` sends only the site's origin: never the
-        // path, and never the #fragment that holds the key.
-        referrerPolicy="strict-origin"
-      />
+      <BaseMap />
       {route.length > 1 && (
         <Polyline
           positions={route}
