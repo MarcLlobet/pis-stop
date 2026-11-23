@@ -2,13 +2,12 @@ import { useMemo } from 'react';
 
 import { LoadingIndicator } from '@/components/application/loading-indicator/loading-indicator';
 
-import { useSession } from '../hooks/use-session';
+import { type SessionState, useSession } from '../hooks/use-session';
+import type { CloudinaryConfig } from '../lib/cloudinary';
 import { parseCloudinaryConfig } from '../lib/config';
 import { browserKeyStore, clearLocationHash, readLocationHash } from '../platform/browser';
 import { EventApp, type EventSource } from './event-app';
 import { Landing } from './landing';
-import type { SessionState } from '../hooks/use-session';
-import type { CloudinaryConfig } from '../lib/cloudinary';
 
 const cloudinary = parseCloudinaryConfig(import.meta.env);
 

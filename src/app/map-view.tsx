@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css';
 
-import { divIcon, type LatLngExpression, latLngBounds } from 'leaflet';
+import { divIcon, latLngBounds, type LatLngExpression } from 'leaflet';
 import { useMemo } from 'react';
 import { MapContainer, Marker, Polyline } from 'react-leaflet';
 
