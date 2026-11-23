@@ -15,6 +15,7 @@ import type { PhotoView, ProfileView, Snapshot } from '../lib/snapshot';
 import { Gallery } from './gallery';
 import { Lightbox } from './lightbox';
 import { MapView } from './map-view';
+import { PhotoSheet } from './photo-sheet';
 import { SecuritySheet } from './security-sheet';
 import { StopSheet } from './stop-sheet';
 import { UploadButton } from './upload-button';
@@ -43,17 +44,33 @@ export const EventScreen = ({
   const [view, setView] = useState<View>('map');
   const [stopId, setStopId] = useState<string | null>(null);
   const [opened, setOpened] = useState<PhotoView | null>(null);
+  const [group, setGroup] = useState<readonly PhotoView[] | null>(null);
   const [panel, setPanel] = useState<'security' | 'leave' | null>(null);
   const upload = useUpload({ repository, stops: snapshot.stops, identity, onPhoto });
   const stop = snapshot.stops.find(({ id }) => id === stopId);
 
   return (
-    <div className="flex h-full flex-col bg-primary">
-      <header className="flex items-center gap-2 border-b border-secondary px-4 py-3">
+    <Tabs
+      selectedKey={view}
+      onSelectionChange={(key) => {
+        setView(key === 'gallery' ? 'gallery' : 'map');
+      }}
+      className="flex h-full flex-col bg-primary"
+    >
+      <header className="flex items-center gap-2 border-b border-secondary px-4 py-2">
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold text-primary">
           <span className="text-brand-secondary">Pis Stop</span> –{' '}
           {snapshot.eventName ?? 'Correpisos'}
         </h1>
+        <TabList type="button-gray" size="sm" aria-label="Vista" className="shrink-0">
+          <Tab id="map" icon={Map01} label={<span className="max-sm:sr-only">Mapa</span>} />
+          <Tab
+            id="gallery"
+            icon={Grid01}
+            label={<span className="max-sm:sr-only">Galeria</span>}
+            badge={snapshot.photos.length}
+          />
+        </TabList>
         <Button
           color="tertiary"
           size="sm"
@@ -83,32 +100,19 @@ export const EventScreen = ({
         </Button>
       </header>
 
-      <Tabs
-        selectedKey={view}
-        onSelectionChange={(key) => {
-          setView(key === 'gallery' ? 'gallery' : 'map');
-        }}
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        <div className="px-4 py-2">
-          <TabList type="button-gray" size="sm" fullWidth aria-label="Vista">
-            <Tab id="map" label="Mapa" icon={Map01} />
-            <Tab id="gallery" label="Galeria" icon={Grid01} badge={snapshot.photos.length} />
-          </TabList>
-        </div>
-        <TabPanel id="map" className="relative min-h-0 flex-1">
-          <MapView
-            snapshot={snapshot}
-            onSelectStop={({ id }) => {
-              setStopId(id);
-            }}
-            onOpenPhoto={setOpened}
-          />
-        </TabPanel>
-        <TabPanel id="gallery" className="min-h-0 flex-1 overflow-y-auto">
-          <Gallery snapshot={snapshot} onOpen={setOpened} />
-        </TabPanel>
-      </Tabs>
+      <TabPanel id="map" className="relative min-h-0 flex-1">
+        <MapView
+          snapshot={snapshot}
+          onSelectStop={({ id }) => {
+            setStopId(id);
+          }}
+          onOpenPhoto={setOpened}
+          onOpenGroup={setGroup}
+        />
+      </TabPanel>
+      <TabPanel id="gallery" className="min-h-0 flex-1 overflow-y-auto">
+        <Gallery snapshot={snapshot} onOpen={setOpened} />
+      </TabPanel>
 
       <UploadButton
         status={upload.status}
@@ -125,6 +129,20 @@ export const EventScreen = ({
           onOpen={setOpened}
           onClose={() => {
             setStopId(null);
+          }}
+        />
+      )}
+
+      {group !== null && (
+        <PhotoSheet
+          title="Fotos properes"
+          badge="Al mateix lloc"
+          photos={group}
+          profiles={snapshot.profiles}
+          empty=""
+          onOpen={setOpened}
+          onClose={() => {
+            setGroup(null);
           }}
         />
       )}
@@ -185,6 +203,6 @@ export const EventScreen = ({
           </Dialog>
         </Modal>
       </ModalOverlay>
-    </div>
+    </Tabs>
   );
 };

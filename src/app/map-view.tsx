@@ -1,9 +1,11 @@
 import 'leaflet/dist/leaflet.css';
 
 import { divIcon, latLngBounds, type LatLngExpression } from 'leaflet';
-import { useMemo } from 'react';
-import { MapContainer, Marker, Polyline } from 'react-leaflet';
+import { useMemo, useState } from 'react';
+import { MapContainer, Marker, Polyline, useMap, useMapEvent } from 'react-leaflet';
 
+import { clusterPoints } from '../lib/cluster';
+import { centroid } from '../lib/geo';
 import { countByStop, type PlacedPhoto, placedPhotos } from '../lib/selectors';
 import type { PhotoView, Snapshot } from '../lib/snapshot';
 import type { LatLng, Stop } from '../lib/types';
@@ -13,6 +15,7 @@ interface MapViewProps {
   readonly snapshot: Snapshot;
   readonly onSelectStop: (stop: Stop) => void;
   readonly onOpenPhoto: (photo: PhotoView) => void;
+  readonly onOpenGroup: (photos: readonly PhotoView[]) => void;
 }
 
 const BARCELONA: LatLngExpression = [41.3874, 2.1686];
@@ -50,19 +53,94 @@ const stopIcon = (stop: Stop, count: number) =>
     ),
   });
 
+const thumbnail = (photo: PlacedPhoto): HTMLElement =>
+  element('img', { src: photo.thumbUrl, alt: '', class: 'size-full object-cover' });
+
 const photoIcon = (photo: PlacedPhoto) =>
   divIcon({
     className: '',
     iconSize: [40, 40],
     iconAnchor: [20, 20],
+    html: element('span', { class: 'pin-photo' }, thumbnail(photo)),
+  });
+
+/** Several nearby photos: the newest one with a count, drawn as a small stack. */
+const groupIcon = (photos: readonly PlacedPhoto[]) =>
+  divIcon({
+    className: '',
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
     html: element(
       'span',
-      { class: 'pin-photo' },
-      element('img', { src: photo.thumbUrl, alt: '', class: 'size-full object-cover' }),
+      { class: 'pin-group' },
+      element('span', { class: 'pin-photo' }, ...photos.slice(0, 1).map(thumbnail)),
+      element('span', { class: 'pin-count' }, String(photos.length)),
     ),
   });
 
-export const MapView = ({ snapshot, onSelectStop, onOpenPhoto }: MapViewProps) => {
+/** Photos closer than this on screen (in pixels) are shown as one group. */
+const GROUP_RADIUS = 48;
+
+interface PhotoPinsProps {
+  readonly photos: readonly PlacedPhoto[];
+  readonly onOpenPhoto: (photo: PhotoView) => void;
+  readonly onOpenGroup: (photos: readonly PhotoView[]) => void;
+}
+
+/**
+ * Photo pins, grouped by distance on screen. Zooming in splits groups; a
+ * group that cannot be split any further (same spot, or maximum zoom) opens
+ * as a list instead.
+ */
+const PhotoPins = ({ photos, onOpenPhoto, onOpenGroup }: PhotoPinsProps) => {
+  const map = useMap();
+  const [zoom, setZoom] = useState(() => map.getZoom());
+  useMapEvent('zoomend', () => {
+    setZoom(map.getZoom());
+  });
+
+  const groups = useMemo(
+    () =>
+      clusterPoints(
+        photos.map((photo) => {
+          const { x, y } = map.project(toTuple(photo.position), zoom);
+          return { item: photo, x, y };
+        }),
+        GROUP_RADIUS,
+      ),
+    [map, photos, zoom],
+  );
+
+  return groups.map(({ items }) => {
+    const [first] = items;
+    if (first === undefined) {
+      return null;
+    }
+    const center = centroid(items.map(({ position }) => position)) ?? first.position;
+    const open = () => {
+      if (items.length === 1) {
+        onOpenPhoto(first);
+        return;
+      }
+      const bounds = latLngBounds(items.map(({ position }) => toTuple(position)));
+      if (map.getBoundsZoom(bounds) > map.getZoom()) {
+        map.flyToBounds(bounds.pad(0.5));
+      } else {
+        onOpenGroup(items);
+      }
+    };
+    return (
+      <Marker
+        key={`${first.id}:${items.length}`}
+        position={toTuple(center)}
+        icon={items.length === 1 ? photoIcon(first) : groupIcon(items)}
+        eventHandlers={{ click: open }}
+      />
+    );
+  });
+};
+
+export const MapView = ({ snapshot, onSelectStop, onOpenPhoto, onOpenGroup }: MapViewProps) => {
   const counts = useMemo(() => countByStop(snapshot.photos), [snapshot.photos]);
   const placed = useMemo(() => placedPhotos(snapshot.photos), [snapshot.photos]);
   const route = snapshot.stops.map(({ position }) => toTuple(position));
@@ -100,18 +178,7 @@ export const MapView = ({ snapshot, onSelectStop, onOpenPhoto }: MapViewProps) =
           }}
         />
       ))}
-      {placed.map((photo) => (
-        <Marker
-          key={photo.id}
-          position={toTuple(photo.position)}
-          icon={photoIcon(photo)}
-          eventHandlers={{
-            click: () => {
-              onOpenPhoto(photo);
-            },
-          }}
-        />
-      ))}
+      <PhotoPins photos={placed} onOpenPhoto={onOpenPhoto} onOpenGroup={onOpenGroup} />
     </MapContainer>
   );
 };
