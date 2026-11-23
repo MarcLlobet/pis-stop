@@ -10,13 +10,25 @@ export type IdentityState =
  * This device's signing identity for one event. The private key is created
  * non-extractable, so even code running in this page cannot copy it out.
  */
-export const useIdentity = (keyStore: Promise<KeyStore>, scope: string) => {
+export const useIdentity = (
+  keyStore: Promise<KeyStore>,
+  scope: string,
+  { autoCreate = false }: { readonly autoCreate?: boolean } = {},
+) => {
   const [state, setState] = useState<IdentityState>({ status: 'loading' });
 
   useEffect(() => {
     const controller = new AbortController();
+    const create = async (store: KeyStore): Promise<Identity> => {
+      const identity = await generateIdentity();
+      await store.saveIdentity(scope, identity).catch(() => undefined);
+      return identity;
+    };
     void keyStore
-      .then((store) => store.loadIdentity(scope))
+      .then(async (store) => {
+        const saved = await store.loadIdentity(scope).catch(() => null);
+        return saved === null && autoCreate ? create(store) : saved;
+      })
       .catch(() => null)
       .then((identity) => {
         if (!controller.signal.aborted) {
@@ -26,7 +38,7 @@ export const useIdentity = (keyStore: Promise<KeyStore>, scope: string) => {
     return () => {
       controller.abort();
     };
-  }, [keyStore, scope]);
+  }, [keyStore, scope, autoCreate]);
 
   /** Returns the existing identity, or creates and stores a new one. */
   const ensure = useCallback(async (): Promise<Identity> => {

@@ -60,3 +60,16 @@ describe('createDemoRepository', () => {
     expect(urls.every((url) => url.startsWith('data:image/svg+xml'))).toBe(true);
   });
 });
+
+describe('createDemoRepository with a ready-made profile', () => {
+  it('includes the current device as a member', async () => {
+    const me = await generateIdentity();
+    const withMe = createDemoRepository(
+      { toUrl: fakeToUrl, newId: () => 'x', now: () => new Date() },
+      { identity: me, name: 'Dev' },
+    );
+    const snapshot = await withMe.load();
+    expect(snapshot.profiles.get(me.id)).toMatchObject({ name: 'Dev', avatarUrl: null });
+    expect(snapshot.profiles.size).toBe(4);
+  });
+});

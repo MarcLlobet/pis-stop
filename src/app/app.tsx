@@ -32,6 +32,8 @@ export const App = () => {
     browserKeyStore,
     readLocationHash,
     clearLocationHash,
+    // `pnpm dev` opens the demo directly. Invites (#k=…) still work as usual.
+    import.meta.env.DEV ? 'demo' : 'landing',
   );
   const source = useMemo(() => toSource(session, cloudinary), [session]);
 

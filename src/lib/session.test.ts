@@ -55,4 +55,10 @@ describe('resolveSession', () => {
     expect((await resolveSession(inviteHash(generateSecret()), broken)).session.kind).toBe('event');
     expect((await resolveSession('', broken)).session.kind).toBe('landing');
   });
+
+  it('opens the demo instead of the landing page when asked (development)', async () => {
+    expect((await resolveSession('', createMemoryKeyStore(), 'demo')).session).toEqual({
+      kind: 'demo',
+    });
+  });
 });

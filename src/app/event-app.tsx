@@ -36,23 +36,35 @@ const Centered = ({ children }: { readonly children: ReactNode }) => (
   </div>
 );
 
-export const EventApp = ({ source, onLeave }: EventAppProps) => {
-  const repository = useMemo(
-    () =>
-      source.kind === 'demo'
-        ? createDemoRepository(browserDeps)
-        : createCloudinaryRepository(
-            createCloudinaryClient(source.cloudinary),
-            source.keys,
-            browserDeps,
-          ),
-    [source],
-  );
-  const scope = source.kind === 'demo' ? 'demo' : source.keys.tag;
-  const { state, reload, addPhoto, addProfile } = useEvent(repository);
-  const identity = useIdentity(browserKeyStore, scope);
+/** In development the demo skips onboarding: you land on the map with a profile. */
+const DEV_PROFILE_NAME = 'Tu (dev)';
 
-  if (state.status === 'loading' || identity.state.status === 'loading') {
+export const EventApp = ({ source, onLeave }: EventAppProps) => {
+  const autoProfile = source.kind === 'demo' && import.meta.env.DEV;
+  const scope = source.kind === 'demo' ? 'demo' : source.keys.tag;
+  const identity = useIdentity(browserKeyStore, scope, { autoCreate: autoProfile });
+  const devIdentity =
+    autoProfile && identity.state.status === 'ready' ? identity.state.identity : null;
+
+  const repository = useMemo(() => {
+    if (source.kind === 'event') {
+      return createCloudinaryRepository(
+        createCloudinaryClient(source.cloudinary),
+        source.keys,
+        browserDeps,
+      );
+    }
+    if (!autoProfile) {
+      return createDemoRepository(browserDeps);
+    }
+    // Wait for the identity, so the first load already contains "me".
+    return devIdentity === null
+      ? null
+      : createDemoRepository(browserDeps, { identity: devIdentity, name: DEV_PROFILE_NAME });
+  }, [source, autoProfile, devIdentity]);
+  const { state, reload, addPhoto, addProfile } = useEvent(repository);
+
+  if (repository === null || state.status === 'loading' || identity.state.status === 'loading') {
     return (
       <Centered>
         <LoadingIndicator type="line-spinner" size="md" label="Obrint i verificant les fotos…" />

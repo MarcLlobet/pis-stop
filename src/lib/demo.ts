@@ -1,5 +1,6 @@
 import { fromUtf8, utf8 } from './encoding';
 import { escapeHtml } from './html';
+import type { Identity } from './identity';
 import {
   type EncodedImage,
   type EventRepository,
@@ -120,14 +121,25 @@ export const demoEntries = (): readonly Entry[] => [
   }),
 ];
 
+/** A ready-made profile for the current device, used in development. */
+export interface DemoMe {
+  readonly identity: Pick<Identity, 'id' | 'publicKey'>;
+  readonly name: string;
+}
+
+const meEntry = ({ identity, name }: DemoMe): Entry =>
+  profileEntry(identity, { name, email: '', avatar: null }, new Date(START));
+
 /**
  * A repository that keeps nothing and verifies nothing: uploads only live in
- * the visitor's tab, so the public demo can be played with freely.
+ * the visitor's tab, so the public demo can be played with freely. With `me`,
+ * the visitor already has a profile and lands straight on the map.
  */
-export const createDemoRepository = (deps: RepositoryDeps): EventRepository => {
+export const createDemoRepository = (deps: RepositoryDeps, me?: DemoMe): EventRepository => {
   const toUrl = demoToUrl(deps.toUrl);
+  const entries = me === undefined ? demoEntries() : [...demoEntries(), meEntry(me)];
   return {
-    load: () => Promise.resolve(buildSnapshot(demoEntries(), toUrl)),
+    load: () => Promise.resolve(buildSnapshot(entries, toUrl)),
     publishProfile: (identity, input) =>
       Promise.resolve(toProfileView(profileEntry(identity, input, deps.now()), toUrl)),
     publishPhoto: (identity, input) =>

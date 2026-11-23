@@ -13,11 +13,18 @@ export interface ResolvedSession {
   readonly fromInvite: boolean;
 }
 
+/** What to open when there is neither an invite nor a remembered event. */
+export type Fallback = 'landing' | 'demo';
+
 /**
  * An invite link always wins over a remembered event. The secret in the link
  * is turned into non-extractable keys right away and is not stored as such.
  */
-export const resolveSession = async (hash: string, store: KeyStore): Promise<ResolvedSession> => {
+export const resolveSession = async (
+  hash: string,
+  store: KeyStore,
+  fallback: Fallback = 'landing',
+): Promise<ResolvedSession> => {
   const invite = readInvite(hash);
   if (invite !== null) {
     const keys = await deriveEventKeys(invite.secret, invite.organizer);
@@ -26,7 +33,7 @@ export const resolveSession = async (hash: string, store: KeyStore): Promise<Res
   }
   const keys = await store.loadEvent().catch(() => null);
   return {
-    session: keys === null ? { kind: 'landing' } : { kind: 'event', keys },
+    session: keys === null ? { kind: fallback } : { kind: 'event', keys },
     fromInvite: false,
   };
 };

@@ -74,7 +74,9 @@ export const MapView = ({ snapshot, onSelectStop, onOpenPhoto }: MapViewProps) =
   return (
     <MapContainer
       {...(bounds === undefined ? { center: points[0] ?? BARCELONA, zoom: 15 } : { bounds })}
-      className="size-full"
+      // `isolate` keeps Leaflet's internal z-indexes (400–1000) inside the
+      // map, so dialogs and the upload button always stay on top of it.
+      className="isolate size-full"
       zoomControl={false}
     >
       <TileLayer
