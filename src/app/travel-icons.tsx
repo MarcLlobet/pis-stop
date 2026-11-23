@@ -1,9 +1,13 @@
 import { Bus, Train, Tram } from '@untitledui/icons';
-import type { FC, SVGProps } from 'react';
+import type { FC } from 'react';
 
 import type { TravelMode } from '../lib/types';
 
-type IconProps = SVGProps<SVGSVGElement>;
+/** The props we pass to any travel icon: ours and Untitled UI's accept them. */
+interface IconProps {
+  readonly className?: string;
+  readonly 'aria-hidden'?: boolean | 'true' | 'false';
+}
 
 /** Line icon in the Untitled UI style (24px grid, 2px stroke); it has no walking icon. */
 const Walk = (props: IconProps) => (
