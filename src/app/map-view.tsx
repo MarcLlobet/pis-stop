@@ -19,6 +19,7 @@ import type { PhotoView, Snapshot } from '../lib/snapshot';
 import { chosenOption, type LegStyle, legStyle, segmentStyle } from '../lib/transit';
 import type { LatLng, Stop } from '../lib/types';
 import { BaseMap } from './base-map';
+import { MetroLayer } from './metro-layer';
 
 interface MapViewProps {
   readonly snapshot: Snapshot;
@@ -224,6 +225,7 @@ export const MapView = ({
       maxZoom={18}
     >
       <BaseMap />
+      <MetroLayer />
       {routeLines(snapshot, choices).map(({ key, positions, style }) => (
         <Polyline
           key={key}

@@ -28,6 +28,7 @@
     "check": "pnpm check:ts-only && pnpm format:check && pnpm lint && pnpm typecheck && pnpm coverage",
     "manifest": "tsx scripts/build-manifest.ts dist",
     "map:extract": "tsx scripts/extract-map.ts",
+    "map:metro": "tsx scripts/extract-metro.ts",
     "event:create": "tsx scripts/create-event.ts",
     "event:route": "tsx scripts/plan-routes.ts"
   },

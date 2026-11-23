@@ -75,21 +75,26 @@ existeixi, `pnpm dev` fa servir les tessel·les d’OpenStreetMap.
 
 ### 4. Itinerari amb el metro real (opcional)
 
-Amb una clau de Google (Routes API activada) a `GOOGLE_MAPS_API_KEY` del `.env`:
-
-1. [Activa la Routes API](https://console.cloud.google.com/apis/library/routes.googleapis.com)
-   (et demanarà un projecte i un compte de facturació).
-2. [Crea una clau](https://console.cloud.google.com/apis/credentials) a _Create credentials → API
-   key_ i, a _API restrictions_, limita-la a **Routes API**.
-3. Afegeix-la al `.env` i executa:
+Escriu a `event.json` com vas d’un pis a l’altre (línies i estacions, a peu, en bici) i executa:
 
 ```sh
-pnpm event:route event.json --departure 2026-12-12T18:00
+pnpm event:route event.json
 ```
 
-Calcula, per a cada tram, la ruta en transport públic (camins reals, estacions, línies i
-transbords), a peu i en bici, i ho desa a `event.json`. Només es crida des del teu ordinador: la
-web no contacta mai Google. Amb `pnpm dev` ja ho veus al mapa i al panell «Itinerari».
+Amb dades obertes d’OpenStreetMap, sense clau ni targeta: el metro segueix la via real entre les
+estacions que has escrit (amb els transbords) i els trams a peu i en bici segueixen els carrers. Ho
+desa a `event.json` i ho veus amb `pnpm dev`. El mapa també dibuixa tota la xarxa de metro
+(`public/map/metro.json`, que genera el workflow «Update map»).
+
+Si prefereixes que ho planifiqui Google (horaris reals, transbords que no has escrit), amb una
+clau de la Routes API a `GOOGLE_MAPS_API_KEY`:
+
+1. [Activa la Routes API](https://console.cloud.google.com/apis/library/routes.googleapis.com)
+   (demana un compte de facturació).
+2. [Crea una clau](https://console.cloud.google.com/apis/credentials) i limita-la a **Routes API**.
+3. `pnpm event:route event.json --provider google --departure 2026-12-12T18:00`
+
+Només s’executa al teu ordinador: la web no contacta mai cap d’aquests serveis.
 
 ### 5. Crear l’event
 

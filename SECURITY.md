@@ -194,10 +194,11 @@ Cap sistema és perfecte. Aquests són els límits coneguts, sense maquillatge.
 15. **`frame-ancestors` no es pot posar en una etiqueta `<meta>`**, i GitHub Pages no deixa
     enviar capçaleres. La web es podria incrustar en un iframe d’una altra web (clickjacking); no
     hi ha cap acció perillosa d’un sol clic, però cal saber-ho.
-16. **Si l’organitzador planifica l’itinerari amb Google** (`pnpm event:route`), Google veu les
-    adreces dels pisos i l’hora prevista en aquell moment, des del seu ordinador. El resultat (camins,
-    estacions, temps) es xifra i se signa com la resta. La web no contacta mai Google, i els mòbils
-    dels amics tampoc. La clau de Google viu només al `.env` de l’organitzador.
+16. **Quan l’organitzador planifica l’itinerari** (`pnpm event:route`), el servei de rutes veu
+    les coordenades dels pisos en aquell moment, des del seu ordinador: per defecte els servidors
+    públics d’OpenStreetMap de FOSSGIS, o Google si ho tria. El resultat es xifra i se signa com la
+    resta. La web i els mòbils dels amics no contacten mai cap d’aquests serveis. Les línies de
+    metro (`metro.json`) són dades públiques d’OpenStreetMap i es publiquen amb la web.
 17. **El fitxer de claus de l’organitzador** (`out/*.keys.json`) permet afegir pisos i llegir-ho
     tot. Es crea amb permisos `600`, però guardar-lo bé és responsabilitat de l’organitzador.
 
