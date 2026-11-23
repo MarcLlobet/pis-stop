@@ -64,18 +64,16 @@ const slugify = (text: string): string =>
 
 const toEntries = (event: EventFile, organizerKey: string): readonly Entry[] => [
   { meta: { kind: 'event', name: event.name.trim(), organizerKey }, payload: new Uint8Array(0) },
-  ...event.stops.map(
-    (stop, index): Entry<Stop> => ({
-      meta: {
-        kind: 'stop',
-        id: `stop-${index + 1}-${slugify(stop.name)}`.slice(0, 64),
-        name: stop.name.trim(),
-        order: index + 1,
-        position: { lat: stop.lat, lng: stop.lng },
-      },
-      payload: new Uint8Array(0),
-    }),
-  ),
+  ...event.stops.map((stop, index): Entry<Stop> => ({
+    meta: {
+      kind: 'stop',
+      id: `stop-${index + 1}-${slugify(stop.name)}`.slice(0, 64),
+      name: stop.name.trim(),
+      order: index + 1,
+      position: { lat: stop.lat, lng: stop.lng },
+    },
+    payload: new Uint8Array(0),
+  })),
 ];
 
 const newOrganizer = async (): Promise<Organizer> => {

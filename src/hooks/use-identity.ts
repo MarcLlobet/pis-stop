@@ -4,8 +4,7 @@ import { generateIdentity, type Identity } from '../lib/identity';
 import type { KeyStore } from '../lib/key-store';
 
 export type IdentityState =
-  | { readonly status: 'loading' }
-  | { readonly status: 'ready'; readonly identity: Identity | null };
+  { readonly status: 'loading' } | { readonly status: 'ready'; readonly identity: Identity | null };
 
 /**
  * This device's signing identity for one event. The private key is created

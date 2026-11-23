@@ -21,8 +21,7 @@ export interface EventKeys {
  * made for one purpose can never be accepted as another (domain separation).
  */
 export type Purpose =
-  | { readonly kind: 'entry' }
-  | { readonly kind: 'photo'; readonly photoId: string };
+  { readonly kind: 'entry' } | { readonly kind: 'photo'; readonly photoId: string };
 
 export const ENTRY: Purpose = { kind: 'entry' };
 
