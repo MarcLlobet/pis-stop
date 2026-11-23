@@ -121,7 +121,7 @@ describe('createCloudinaryClient', () => {
   });
 
   it('uploads with the preset and tags, and returns the secure URL', async () => {
-    const fetchFn = vi.fn((_url: string, _init?: RequestInit) =>
+    const fetchFn = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(() =>
       Promise.resolve(json({ secure_url: own })),
     );
     const client = createCloudinaryClient(config, fetchFn);
@@ -137,7 +137,7 @@ describe('createCloudinaryClient', () => {
   });
 
   it('omits tags when there are none', async () => {
-    const fetchFn = vi.fn((_url: string, _init?: RequestInit) =>
+    const fetchFn = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(() =>
       Promise.resolve(json({ secure_url: own })),
     );
     await createCloudinaryClient(config, fetchFn).upload(Uint8Array.of(1), []);

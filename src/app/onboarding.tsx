@@ -1,5 +1,5 @@
 import { Camera01 } from '@untitledui/icons';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type SyntheticEvent, useEffect, useState } from 'react';
 import { FileTrigger as AriaFileTrigger, Form as AriaForm } from 'react-aria-components';
 
 import { Avatar } from '@/components/base/avatar/avatar';
@@ -48,7 +48,7 @@ export const Onboarding = ({ eventName, onSubmit }: OnboardingProps) => {
   const preview = usePreview(avatar);
   const saving = status.kind === 'saving';
 
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     setStatus({ kind: 'saving' });
     try {

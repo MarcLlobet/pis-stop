@@ -35,12 +35,11 @@ const createFakeCloud = () => {
     if (init?.method === 'POST') {
       const body = init.body as FormData;
       const file = body.get('file') as Blob;
+      const tags = body.get('tags');
       const stored: StoredFile = {
         url: `${base}${state.files.length}`,
         bytes: new Uint8Array(await file.arrayBuffer()),
-        tags: String(body.get('tags') ?? '')
-          .split(',')
-          .filter(Boolean),
+        tags: typeof tags === 'string' ? tags.split(',').filter(Boolean) : [],
       };
       // eslint-disable-next-line functional/immutable-data -- test double
       state.files = [...state.files, stored];
