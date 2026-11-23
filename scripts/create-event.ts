@@ -41,7 +41,10 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null;
 
 const toEntries = (event: EventFile, organizerKey: string): readonly Entry[] => [
-  { meta: { kind: 'event', name: event.name.trim(), organizerKey }, payload: new Uint8Array(0) },
+  {
+    meta: { kind: 'event', name: event.name.trim(), organizerKey, legs: event.legs },
+    payload: new Uint8Array(0),
+  },
   ...stopsOf(event).map((meta): Entry => ({ meta, payload: new Uint8Array(0) })),
 ];
 

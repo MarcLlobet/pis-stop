@@ -17,5 +17,5 @@ export const loadLocalEvent = async (): Promise<DemoEvent | null> => {
     return null;
   }
   const event = parseEventFile(await load());
-  return event === null ? null : { name: event.name, stops: stopsOf(event) };
+  return event === null ? null : { name: event.name, stops: stopsOf(event), legs: event.legs };
 };

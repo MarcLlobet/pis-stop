@@ -20,7 +20,10 @@ describe('buildSnapshot', () => {
 
   it('collects the event name, ordered stops, profiles and newest-first photos', () => {
     const entries: readonly Entry[] = [
-      { meta: { kind: 'event', name: 'Correpisos 2026', organizerKey: 'k' }, payload: NO_BYTES },
+      {
+        meta: { kind: 'event', name: 'Correpisos 2026', organizerKey: 'k', legs: [] },
+        payload: NO_BYTES,
+      },
       stopEntry('s2', 2),
       stopEntry('s1', 1),
       { meta: profileMeta('p1'), payload: Uint8Array.of(1, 2, 3) },

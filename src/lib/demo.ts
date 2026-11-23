@@ -9,7 +9,7 @@ import {
   type RepositoryDeps,
 } from './repository';
 import { buildSnapshot, type ToImageUrl, toPhotoView, toProfileView } from './snapshot';
-import type { Entry, LatLng, Stop } from './types';
+import type { Entry, LatLng, Leg, Stop } from './types';
 
 const SVG = 'image/svg+xml';
 
@@ -82,14 +82,33 @@ const demoToUrl =
 export interface DemoEvent {
   readonly name: string;
   readonly stops: readonly Stop[];
+  readonly legs: readonly Leg[];
 }
 
-const DEMO_EVENT: DemoEvent = { name: 'Correpisos de prova', stops: DEMO_STOPS };
+const DEMO_LEGS: readonly Leg[] = [
+  {
+    options: [
+      { mode: 'walk', minutes: 12, steps: [] },
+      { mode: 'bike', minutes: 5, steps: [] },
+    ],
+    path: [],
+  },
+  {
+    options: [
+      { mode: 'metro', minutes: 18, steps: [{ line: 'L3', from: 'Paral·lel', to: 'Fontana' }] },
+      { mode: 'bike', minutes: 14, steps: [] },
+    ],
+    path: [],
+  },
+  { options: [{ mode: 'walk', minutes: 6, steps: [] }], path: [] },
+];
+
+const DEMO_EVENT: DemoEvent = { name: 'Correpisos de prova', stops: DEMO_STOPS, legs: DEMO_LEGS };
 
 /** The demo data. Photos are spread over the event's first stops. */
 export const demoEntries = (event: DemoEvent = DEMO_EVENT): readonly Entry[] => [
   {
-    meta: { kind: 'event', name: event.name, organizerKey: 'demo' },
+    meta: { kind: 'event', name: event.name, organizerKey: 'demo', legs: event.legs },
     payload: new Uint8Array(0),
   },
   ...event.stops.map((meta): Entry => ({ meta, payload: new Uint8Array(0) })),

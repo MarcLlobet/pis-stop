@@ -88,7 +88,7 @@ const setup = async () => {
     cloud.client,
     keys,
     {
-      meta: { kind: 'event', name: 'Correpisos', organizerKey: organizer.publicKey },
+      meta: { kind: 'event', name: 'Correpisos', organizerKey: organizer.publicKey, legs: [] },
       payload: new Uint8Array(0),
     },
     organizer.privateKey,

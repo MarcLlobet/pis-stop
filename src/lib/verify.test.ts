@@ -16,7 +16,7 @@ const setup = async () => {
   const anna = await generateIdentity();
   const mallory = await generateIdentity();
   const event: Entry = {
-    meta: { kind: 'event', name: 'Correpisos', organizerKey: organizer.publicKey },
+    meta: { kind: 'event', name: 'Correpisos', organizerKey: organizer.publicKey, legs: [] },
     payload: none,
   };
   const profile = (who: Identity, name: string): Entry => ({
@@ -56,7 +56,7 @@ describe('verifyEntries', () => {
   it('ignores an organizer whose key does not match the invite', async () => {
     const { organizer, mallory } = await setup();
     const fakeEvent: Entry = {
-      meta: { kind: 'event', name: 'Fals', organizerKey: mallory.publicKey },
+      meta: { kind: 'event', name: 'Fals', organizerKey: mallory.publicKey, legs: [] },
       payload: none,
     };
     const result = await verifyEntries(

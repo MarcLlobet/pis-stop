@@ -13,6 +13,7 @@ import type { Identity } from '../lib/identity';
 import type { EventRepository } from '../lib/repository';
 import type { PhotoView, ProfileView, Snapshot } from '../lib/snapshot';
 import { Gallery } from './gallery';
+import { ItineraryPanel } from './itinerary-panel';
 import { Lightbox } from './lightbox';
 import { MapView } from './map-view';
 import { PhotoSheet } from './photo-sheet';
@@ -109,6 +110,7 @@ export const EventScreen = ({
           onOpenPhoto={setOpened}
           onOpenGroup={setGroup}
         />
+        <ItineraryPanel stops={snapshot.stops} legs={snapshot.legs} />
       </TabPanel>
       <TabPanel id="gallery" className="min-h-0 flex-1 overflow-y-auto">
         <Gallery snapshot={snapshot} onOpen={setOpened} />

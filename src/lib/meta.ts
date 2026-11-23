@@ -1,4 +1,15 @@
-import type { EventInfo, LatLng, Meta, Photo, Profile, Stop } from './types';
+import type {
+  EventInfo,
+  LatLng,
+  Leg,
+  LegOption,
+  Meta,
+  Photo,
+  Profile,
+  Stop,
+  TransitStep,
+  TravelMode,
+} from './types';
 
 type Fields = Readonly<Record<string, unknown>>;
 
@@ -41,8 +52,66 @@ export const isLatLng = (value: unknown): value is LatLng =>
   Math.abs(value['lat']) <= 90 &&
   Math.abs(value['lng']) <= 180;
 
+const TRAVEL_MODES: readonly TravelMode[] = ['metro', 'train', 'tram', 'bus', 'walk', 'bike'];
+
+const isTravelMode = (value: unknown): value is TravelMode =>
+  TRAVEL_MODES.some((mode) => mode === value);
+
+/** Parses a bounded list; `null` if it is not a list, too long, or any item is invalid. */
+const parseList = <T>(
+  value: unknown,
+  max: number,
+  parseItem: (item: unknown) => T | null,
+): readonly T[] | null => {
+  if (!Array.isArray(value) || value.length > max) {
+    return null;
+  }
+  const items = value.map(parseItem);
+  return items.every((item) => item !== null) ? (items as readonly T[]) : null;
+};
+
+const parseStep = (value: unknown): TransitStep | null =>
+  isRecord(value) &&
+  isString(value['line']) &&
+  /^[A-Za-z0-9]{1,6}$/.test(value['line']) &&
+  isName(value['from']) &&
+  isName(value['to'])
+    ? { line: value['line'], from: value['from'], to: value['to'] }
+    : null;
+
+const parseOption = (value: unknown): LegOption | null => {
+  if (!isRecord(value) || !isTravelMode(value['mode'])) {
+    return null;
+  }
+  const minutes = value['minutes'];
+  const steps = value['steps'] === undefined ? [] : parseList(value['steps'], 5, parseStep);
+  return typeof minutes === 'number' &&
+    Number.isInteger(minutes) &&
+    minutes >= 0 &&
+    minutes <= 600 &&
+    steps !== null
+    ? { mode: value['mode'], minutes, steps }
+    : null;
+};
+
+const parsePoint = (value: unknown): LatLng | null =>
+  isLatLng(value) ? { lat: value.lat, lng: value.lng } : null;
+
+const parseLeg = (value: unknown): Leg | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const options = parseList(value['options'], 5, parseOption);
+  const path = value['path'] === undefined ? [] : parseList(value['path'], 200, parsePoint);
+  return options !== null && path !== null ? { options, path } : null;
+};
+
+/** The itinerary between stops. Missing means none; anything invalid means `null`. */
+export const parseLegs = (value: unknown): readonly Leg[] | null =>
+  value === undefined ? [] : parseList(value, 50, parseLeg);
+
 const isEventInfo = (value: Fields): value is EventInfo & Fields =>
-  isName(value['name']) && isBase64Url(value['organizerKey']);
+  isName(value['name']) && isBase64Url(value['organizerKey']) && parseLegs(value['legs']) !== null;
 
 const isStop = (value: Fields): value is Stop & Fields =>
   isId(value['id']) &&
@@ -82,7 +151,12 @@ export const parseMeta = (value: unknown): Meta | null => {
   switch (value['kind']) {
     case 'event':
       return isEventInfo(value)
-        ? { kind: 'event', name: value.name, organizerKey: value.organizerKey }
+        ? {
+            kind: 'event',
+            name: value.name,
+            organizerKey: value.organizerKey,
+            legs: parseLegs(value['legs']) ?? [],
+          }
         : null;
     case 'stop':
       return isStop(value)

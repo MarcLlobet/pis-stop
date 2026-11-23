@@ -1,4 +1,4 @@
-import type { Bytes, Entry, EventInfo, Meta, Photo, Profile, Stop } from './types';
+import type { Bytes, Entry, EventInfo, Leg, Meta, Photo, Profile, Stop } from './types';
 
 export interface ProfileView extends Profile {
   readonly avatarUrl: string | null;
@@ -10,6 +10,7 @@ export interface PhotoView extends Photo {
 
 export interface Snapshot {
   readonly eventName: string | null;
+  readonly legs: readonly Leg[];
   readonly stops: readonly Stop[];
   readonly profiles: ReadonlyMap<string, ProfileView>;
   readonly photos: readonly PhotoView[];
@@ -20,6 +21,7 @@ export type ToImageUrl = (bytes: Bytes, type: string) => string;
 
 export const EMPTY_SNAPSHOT: Snapshot = {
   eventName: null,
+  legs: [],
   stops: [],
   profiles: new Map(),
   photos: [],
@@ -58,6 +60,7 @@ export const buildSnapshot = (entries: readonly Entry[], toUrl: ToImageUrl): Sna
   );
   return {
     eventName: events.at(-1)?.name ?? null,
+    legs: events.at(-1)?.legs ?? [],
     stops: entries
       .filter(isKind('stop'))
       .map((entry) => entry.meta)

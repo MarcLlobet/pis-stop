@@ -1,5 +1,5 @@
-import { isLatLng } from './meta';
-import type { Stop } from './types';
+import { isLatLng, parseLegs } from './meta';
+import type { Leg, Stop } from './types';
 
 /**
  * The organizer's description of an event (event.json, never committed:
@@ -9,21 +9,32 @@ import type { Stop } from './types';
 export interface EventFile {
   readonly name: string;
   readonly stops: readonly { readonly name: string; readonly lat: number; readonly lng: number }[];
+  /** Optional itinerary: leg N goes from stop N to stop N + 1 (see docs/PROTOCOL.md). */
+  readonly legs: readonly Leg[];
 }
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null;
 
-export const parseEventFile = (value: unknown): EventFile | null =>
-  isRecord(value) &&
-  typeof value['name'] === 'string' &&
-  value['name'].trim() !== '' &&
-  Array.isArray(value['stops']) &&
-  value['stops'].every(
-    (stop: unknown) => isRecord(stop) && typeof stop['name'] === 'string' && isLatLng(stop),
-  )
-    ? (value as unknown as EventFile)
+export const parseEventFile = (value: unknown): EventFile | null => {
+  if (
+    !isRecord(value) ||
+    typeof value['name'] !== 'string' ||
+    value['name'].trim() === '' ||
+    !Array.isArray(value['stops'])
+  ) {
+    return null;
+  }
+  const stops = value['stops'].flatMap((stop: unknown): EventFile['stops'] =>
+    isRecord(stop) && typeof stop['name'] === 'string' && isLatLng(stop)
+      ? [{ name: stop['name'], lat: stop.lat, lng: stop.lng }]
+      : [],
+  );
+  const legs = parseLegs(value['legs']);
+  return stops.length === value['stops'].length && legs !== null && legs.length < stops.length + 1
+    ? { name: value['name'], stops, legs }
     : null;
+};
 
 export const slugify = (text: string): string =>
   text

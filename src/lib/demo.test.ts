@@ -80,7 +80,7 @@ describe('createDemoRepository with another route', () => {
     const snapshot = await createDemoRepository(
       { toUrl: fakeToUrl, newId: () => 'x', now: () => new Date() },
       undefined,
-      { name: 'Correpisos 2026', stops },
+      { name: 'Correpisos 2026', stops, legs: [] },
     ).load();
     expect(snapshot.eventName).toBe('Correpisos 2026');
     expect(snapshot.stops.map(({ id }) => id)).toEqual(['a', 'b']);

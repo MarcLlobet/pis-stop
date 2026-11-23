@@ -83,10 +83,36 @@ Entries are uploaded with the tag. `meta` is one of:
 
 | `kind`    | Fields                                                                                                                     | Payload              | Signed by                     |
 | --------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------- | ----------------------------- |
-| `event`   | `name`, `organizerKey` (b64url raw P-256)                                                                                  | empty                | organizer key                 |
+| `event`   | `name`, `organizerKey` (b64url raw P-256), `legs` (§5.1)                                                                   | empty                | organizer key                 |
 | `stop`    | `id`, `name`, `order`, `position {lat,lng}`                                                                                | empty                | organizer key                 |
 | `profile` | `id`, `publicKey`, `name`, `email`, `imageType`, `createdAt`                                                               | JPEG avatar or empty | the profile's own `publicKey` |
 | `photo`   | `id`, `authorId`, `stopId \| null`, `position \| null`, `takenAt`, `fullUrl`, `fullSha256`, `imageType`, `width`, `height` | JPEG thumbnail       | the author's profile key      |
+
+### 5.1 Itinerary
+
+`legs[n]` describes how to get from the stop with `order = n + 1` to the next one:
+
+```json
+{
+  "options": [
+    {
+      "mode": "metro",
+      "minutes": 26,
+      "steps": [
+        { "line": "L4", "from": "Joanic", "to": "Verdaguer" },
+        { "line": "L5", "from": "Verdaguer", "to": "Badal" }
+      ]
+    },
+    { "mode": "bike", "minutes": 17 }
+  ],
+  "path": [{ "lat": 41.4, "lng": 2.17 }]
+}
+```
+
+`mode` is one of `metro`, `train`, `tram`, `bus`, `walk`, `bike`; `minutes` is an integer from 0 to
+600; `steps` (≤ 5) and `path` (≤ 200 waypoints) are optional; a leg has at most 5 options and an
+event at most 50 legs; `line` matches `[A-Za-z0-9]{1,6}`. The first option is the one drawn on the
+map. The itinerary is part of the event entry, so it is signed by the organizer.
 
 Parsing is strict: unknown kinds are dropped, unknown fields are discarded, strings are bounded
 (names ≤ 80, ids `[A-Za-z0-9_-]{1,64}`, URLs ≤ 500), `imageType` must be `image/jpeg`, `fullSha256`

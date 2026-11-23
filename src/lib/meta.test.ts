@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isLatLng, parseMeta } from './meta';
+import { isLatLng, parseLegs, parseMeta } from './meta';
 import type { Photo, Profile, Stop } from './types';
 
 const stop: Stop = {
@@ -47,7 +47,7 @@ describe('isLatLng', () => {
 
 describe('parseMeta', () => {
   it.each([
-    ['event', { kind: 'event', name: 'Correpisos 2026', organizerKey: 'BKey' }],
+    ['event', { kind: 'event', name: 'Correpisos 2026', organizerKey: 'BKey', legs: [] }],
     ['stop', stop],
     ['profile', profile],
     ['photo', photo],
@@ -78,5 +78,43 @@ describe('parseMeta', () => {
     ['a photo with an empty stop id', { ...photo, stopId: '' }],
   ])('rejects %s', (_, value) => {
     expect(parseMeta(value)).toBeNull();
+  });
+});
+
+describe('parseLegs', () => {
+  const metro = {
+    mode: 'metro',
+    minutes: 26,
+    steps: [
+      { line: 'L4', from: 'Joanic', to: 'Verdaguer' },
+      { line: 'L5', from: 'Verdaguer', to: 'Badal' },
+    ],
+  };
+
+  it('fills in optional fields and drops unknown ones', () => {
+    expect(parseLegs([{ options: [metro, { mode: 'walk', minutes: 13, extra: 1 }] }])).toEqual([
+      { options: [metro, { mode: 'walk', minutes: 13, steps: [] }], path: [] },
+    ]);
+  });
+
+  it('treats a missing itinerary as empty', () => {
+    expect(parseLegs(undefined)).toEqual([]);
+    expect(parseMeta({ kind: 'event', name: 'x', organizerKey: 'k' })).toMatchObject({ legs: [] });
+  });
+
+  it.each([
+    ['a non-list', 'L1'],
+    ['an unknown mode', [{ options: [{ mode: 'boat', minutes: 3 }] }]],
+    ['a negative time', [{ options: [{ mode: 'walk', minutes: -1 }] }]],
+    ['a fractional time', [{ options: [{ mode: 'walk', minutes: 1.5 }] }]],
+    [
+      'a weird line name',
+      [{ options: [{ ...metro, steps: [{ line: '<b>', from: 'a', to: 'b' }] }] }],
+    ],
+    ['a bad waypoint', [{ options: [], path: [{ lat: 100, lng: 0 }] }]],
+    ['too many legs', Array.from({ length: 51 }, () => ({ options: [] }))],
+  ])('rejects %s', (_, value) => {
+    expect(parseLegs(value)).toBeNull();
+    expect(parseMeta({ kind: 'event', name: 'x', organizerKey: 'k', legs: value })).toBeNull();
   });
 });

@@ -6,12 +6,40 @@ export interface LatLng {
   readonly lng: number;
 }
 
+export type TravelMode = 'metro' | 'train' | 'tram' | 'bus' | 'walk' | 'bike';
+
+/** One ride on a line, e.g. L4 from Joanic to Verdaguer. */
+export interface TransitStep {
+  readonly line: string;
+  readonly from: string;
+  readonly to: string;
+}
+
+/** One way of covering a leg: by metro (with its changes), on foot or by bike. */
+export interface LegOption {
+  readonly mode: TravelMode;
+  readonly minutes: number;
+  readonly steps: readonly TransitStep[];
+}
+
+/**
+ * How to get from stop N to stop N + 1. The first option is the one drawn on
+ * the map; `path` adds optional waypoints so the line can follow the streets
+ * or the metro instead of going straight.
+ */
+export interface Leg {
+  readonly options: readonly LegOption[];
+  readonly path: readonly LatLng[];
+}
+
 /** Signed by the organizer. Its key must match the fingerprint in the invite. */
 export interface EventInfo {
   readonly kind: 'event';
   readonly name: string;
   /** Organizer's ECDSA P-256 public key, raw (65 bytes), base64url. */
   readonly organizerKey: string;
+  /** Leg N goes from the stop with order N + 1 to the next one. */
+  readonly legs: readonly Leg[];
 }
 
 /** Signed by the organizer. */

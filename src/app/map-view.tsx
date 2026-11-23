@@ -8,6 +8,7 @@ import { clusterPoints } from '../lib/cluster';
 import { centroid } from '../lib/geo';
 import { countByStop, type PlacedPhoto, placedPhotos } from '../lib/selectors';
 import type { PhotoView, Snapshot } from '../lib/snapshot';
+import { type LegStyle, legStyle } from '../lib/transit';
 import type { LatLng, Stop } from '../lib/types';
 import { BaseMap } from './base-map';
 
@@ -76,6 +77,23 @@ const groupIcon = (photos: readonly PlacedPhoto[]) =>
       element('span', { class: 'pin-photo' }, ...photos.slice(0, 1).map(thumbnail)),
       element('span', { class: 'pin-count' }, String(photos.length)),
     ),
+  });
+
+const PLAIN_ROUTE: LegStyle = { color: ROUTE_COLOR, dashArray: '6 10', weight: 4 };
+
+/**
+ * One line per leg, from stop N to stop N + 1 through the leg's waypoints,
+ * styled by how you get there. Without an itinerary: a plain dashed route.
+ */
+const legLines = (snapshot: Snapshot) =>
+  snapshot.stops.slice(1).map((to, index) => {
+    const from = snapshot.stops[index] ?? to;
+    const leg = snapshot.legs[index];
+    return {
+      key: `${from.id}-${to.id}`,
+      positions: [from.position, ...(leg?.path ?? []), to.position].map(toTuple),
+      style: leg === undefined ? PLAIN_ROUTE : legStyle(leg),
+    };
   });
 
 /** Photos closer than this on screen (in pixels) are shown as one group. */
@@ -157,12 +175,19 @@ export const MapView = ({ snapshot, onSelectStop, onOpenPhoto, onOpenGroup }: Ma
       maxZoom={18}
     >
       <BaseMap />
-      {route.length > 1 && (
+      {legLines(snapshot).map(({ key, positions, style }) => (
         <Polyline
-          positions={route}
-          pathOptions={{ color: ROUTE_COLOR, weight: 4, opacity: 0.7, dashArray: '6 10' }}
+          key={key}
+          positions={positions}
+          pathOptions={{
+            color: style.color,
+            weight: style.weight,
+            opacity: 0.85,
+            lineCap: 'round',
+            ...(style.dashArray === null ? {} : { dashArray: style.dashArray }),
+          }}
         />
-      )}
+      ))}
       {snapshot.stops.map((stop) => (
         <Marker
           key={stop.id}
