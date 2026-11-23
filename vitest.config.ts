@@ -29,7 +29,6 @@ export default defineConfig({
         'src/platform/**',
         'src/app/map-view.tsx',
         'src/app/base-map.tsx',
-        'src/app/metro-layer.tsx',
         'src/hooks/use-local-event.ts',
       ],
       thresholds: {

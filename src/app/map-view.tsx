@@ -19,7 +19,6 @@ import type { PhotoView, Snapshot } from '../lib/snapshot';
 import { chosenOption, type LegStyle, legStyle, segmentStyle } from '../lib/transit';
 import type { LatLng, Stop } from '../lib/types';
 import { BaseMap } from './base-map';
-import { MetroLayer } from './metro-layer';
 
 interface MapViewProps {
   readonly snapshot: Snapshot;
@@ -126,9 +125,12 @@ const routeLines = (snapshot: Snapshot, choices: ReadonlyMap<number, number>) =>
     ];
   });
 
-/** Stations where you board or get off, for the options being shown. */
-const stationsOf = (snapshot: Snapshot, choices: ReadonlyMap<number, number>) =>
-  snapshot.legs.flatMap((leg, index) =>
+/**
+ * Stations where you board or get off, for the options being shown. A
+ * transfer station appears once per line but is labelled only once.
+ */
+const stationsOf = (snapshot: Snapshot, choices: ReadonlyMap<number, number>) => {
+  const stations = snapshot.legs.flatMap((leg, index) =>
     (chosenOption(leg, choices.get(index))?.segments ?? []).flatMap(({ ride }) =>
       ride === null
         ? []
@@ -139,6 +141,11 @@ const stationsOf = (snapshot: Snapshot, choices: ReadonlyMap<number, number>) =>
           })),
     ),
   );
+  return stations.map((entry, position) => ({
+    ...entry,
+    labelled: stations.findIndex(({ station }) => station.name === entry.station.name) === position,
+  }));
+};
 
 /** Photos closer than this on screen (in pixels) are shown as one group. */
 const GROUP_RADIUS = 48;
@@ -225,7 +232,6 @@ export const MapView = ({
       maxZoom={18}
     >
       <BaseMap />
-      <MetroLayer />
       {routeLines(snapshot, choices).map(({ key, positions, style }) => (
         <Polyline
           key={key}
@@ -240,16 +246,19 @@ export const MapView = ({
           }}
         />
       ))}
-      {stationsOf(snapshot, choices).map(({ key, station, color }) => (
+      {stationsOf(snapshot, choices).map(({ key, station, color, labelled }) => (
         <CircleMarker
           key={key}
           center={toTuple(station.position)}
           radius={5}
           pathOptions={{ color, weight: 3, fillColor: '#ffffff', fillOpacity: 1 }}
         >
-          <Tooltip direction="top" offset={[0, -6]}>
-            {station.name}
-          </Tooltip>
+          {/* Like a transit map: only the stations you use, always labelled. */}
+          {labelled ? (
+            <Tooltip permanent direction="right" offset={[6, 0]} className="station-label">
+              {station.name}
+            </Tooltip>
+          ) : null}
         </CircleMarker>
       ))}
       {snapshot.stops.map((stop) => (

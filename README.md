@@ -83,8 +83,7 @@ pnpm event:route event.json
 
 Amb dades obertes d’OpenStreetMap, sense clau ni targeta: el metro segueix la via real entre les
 estacions que has escrit (amb els transbords) i els trams a peu i en bici segueixen els carrers. Ho
-desa a `event.json` i ho veus amb `pnpm dev`. El mapa també dibuixa tota la xarxa de metro
-(`public/map/metro.json`, que genera el workflow «Update map»).
+desa a `event.json` i ho veus amb `pnpm dev`.
 
 Si prefereixes que ho planifiqui Google (horaris reals, transbords que no has escrit), amb una
 clau de la Routes API a `GOOGLE_MAPS_API_KEY`:

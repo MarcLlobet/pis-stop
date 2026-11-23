@@ -89,3 +89,12 @@
     3px -3px 0 1px rgb(0 0 0 / 0.15),
     0 10px 15px -3px rgb(0 0 0 / 0.2);
 }
+
+/* Station names on the route, small and quiet like on a transit map. */
+.leaflet-tooltip.station-label {
+  @apply rounded-md border-0 bg-primary px-1.5 py-0.5 text-xs font-semibold text-secondary shadow-sm;
+}
+
+.leaflet-tooltip.station-label::before {
+  display: none;
+}
