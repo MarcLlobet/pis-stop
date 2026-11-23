@@ -1,0 +1,14 @@
+node_modules
+dist
+coverage
+out
+*.local
+.env
+.env.*
+!.env.example
+
+# Real event definitions contain private addresses: never commit them.
+event.json
+events/
+
+.DS_Store

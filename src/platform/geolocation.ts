@@ -1,0 +1,19 @@
+import type { LatLng } from '../lib/types';
+
+/** Resolves with `null` when location is unavailable or denied: never rejects. */
+export const currentPosition = (timeoutMs = 8_000): Promise<LatLng | null> =>
+  new Promise((resolve) => {
+    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        resolve({ lat: coords.latitude, lng: coords.longitude });
+      },
+      () => {
+        resolve(null);
+      },
+      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60_000 },
+    );
+  });

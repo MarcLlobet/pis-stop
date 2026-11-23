@@ -1,0 +1,9 @@
+{
+  "name": "Correpisos 2026",
+  "stops": [
+    { "name": "Pis de la Júlia", "lat": 41.3786, "lng": 2.1622 },
+    { "name": "Pis d'en Biel", "lat": 41.373, "lng": 2.164 },
+    { "name": "Pis de l'Anna", "lat": 41.4029, "lng": 2.1564 },
+    { "name": "Pis d'en Pol", "lat": 41.4053, "lng": 2.1594 }
+  ]
+}
