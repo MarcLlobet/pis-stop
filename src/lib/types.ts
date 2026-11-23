@@ -15,11 +15,43 @@ export interface TransitStep {
   readonly to: string;
 }
 
+/** A metro or bus station, as shown on the map. */
+export interface Station {
+  readonly name: string;
+  readonly position: LatLng;
+}
+
+/** One ride: board at `from`, get off at `to`. */
+export interface Ride {
+  readonly line: string;
+  /** Line colour as `#rrggbb`, when the data provides one. */
+  readonly color: string | null;
+  readonly vehicle: TravelMode;
+  readonly from: Station;
+  readonly to: Station;
+  readonly headsign: string;
+  readonly stops: number;
+}
+
+/**
+ * A continuous part of a route, Google-style: walk to the station, ride the
+ * metro, change, walk to the flat. `path` is the real geometry.
+ */
+export interface Segment {
+  readonly mode: 'walk' | 'bike' | 'ride';
+  readonly minutes: number;
+  readonly meters: number;
+  readonly path: readonly LatLng[];
+  readonly ride: Ride | null;
+}
+
 /** One way of covering a leg: by metro (with its changes), on foot or by bike. */
 export interface LegOption {
   readonly mode: TravelMode;
   readonly minutes: number;
   readonly steps: readonly TransitStep[];
+  /** Detailed route, when it was planned with `pnpm event:route`. */
+  readonly segments: readonly Segment[];
 }
 
 /**

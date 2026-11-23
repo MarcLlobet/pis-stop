@@ -73,7 +73,19 @@ torna a desplegar sol.
 En local també es pot fer amb `pnpm map:extract` (cal `pmtiles` o Go instal·lat). Mentre no
 existeixi, `pnpm dev` fa servir les tessel·les d’OpenStreetMap.
 
-### 4. Crear l’event
+### 4. Itinerari amb el metro real (opcional)
+
+Amb una clau de Google (Routes API activada) a `GOOGLE_MAPS_API_KEY` del `.env`:
+
+```sh
+pnpm event:route event.json --departure 2026-12-12T18:00
+```
+
+Calcula, per a cada tram, la ruta en transport públic (camins reals, estacions, línies i
+transbords), a peu i en bici, i ho desa a `event.json`. Només es crida des del teu ordinador: la
+web no contacta mai Google. Amb `pnpm dev` ja ho veus al mapa i al panell «Itinerari».
+
+### 5. Crear l’event
 
 ```sh
 cp event.example.json event.json   # event.json està al .gitignore
@@ -83,7 +95,7 @@ pnpm event:create event.json
 Surten l’enllaç d’invitació, el QR i `out/<event>.keys.json`. Guarda aquest últim fora de línia.
 Per afegir pisos més tard: `pnpm event:create mes-pisos.json --keys out/<event>.keys.json`.
 
-### 5. Tancar l’event
+### 6. Tancar l’event
 
 Esborra l’upload preset a Cloudinary. Les fotos es continuen veient, però ja no se’n poden
 penjar més.

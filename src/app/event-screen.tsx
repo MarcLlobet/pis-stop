@@ -46,6 +46,8 @@ export const EventScreen = ({
   const [stopId, setStopId] = useState<string | null>(null);
   const [opened, setOpened] = useState<PhotoView | null>(null);
   const [group, setGroup] = useState<readonly PhotoView[] | null>(null);
+  /** Which way to go for each leg (leg index → option index). */
+  const [choices, setChoices] = useState<ReadonlyMap<number, number>>(new Map());
   const [panel, setPanel] = useState<'security' | 'leave' | null>(null);
   const upload = useUpload({ repository, stops: snapshot.stops, identity, onPhoto });
   const stop = snapshot.stops.find(({ id }) => id === stopId);
@@ -109,8 +111,16 @@ export const EventScreen = ({
           }}
           onOpenPhoto={setOpened}
           onOpenGroup={setGroup}
+          choices={choices}
         />
-        <ItineraryPanel stops={snapshot.stops} legs={snapshot.legs} />
+        <ItineraryPanel
+          stops={snapshot.stops}
+          legs={snapshot.legs}
+          choices={choices}
+          onChoose={(leg, option) => {
+            setChoices((current) => new Map([...current, [leg, option]]));
+          }}
+        />
       </TabPanel>
       <TabPanel id="gallery" className="min-h-0 flex-1 overflow-y-auto">
         <Gallery snapshot={snapshot} onOpen={setOpened} />

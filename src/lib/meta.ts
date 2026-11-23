@@ -6,6 +6,9 @@ import type {
   Meta,
   Photo,
   Profile,
+  Ride,
+  Segment,
+  Station,
   Stop,
   TransitStep,
   TravelMode,
@@ -79,18 +82,64 @@ const parseStep = (value: unknown): TransitStep | null =>
     ? { line: value['line'], from: value['from'], to: value['to'] }
     : null;
 
+const isCount =
+  (max: number) =>
+  (value: unknown): value is number =>
+    typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= max;
+
+const isMinutes = isCount(600);
+const isMeters = isCount(200_000);
+
+const parseStation = (value: unknown): Station | null =>
+  isRecord(value) && isName(value['name']) && isLatLng(value['position'])
+    ? { name: value['name'], position: { lat: value['position'].lat, lng: value['position'].lng } }
+    : null;
+
+const parseRide = (value: unknown): Ride | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const { line, color, vehicle, headsign, stops } = value;
+  const from = parseStation(value['from']);
+  const to = parseStation(value['to']);
+  return isString(line) &&
+    /^[A-Za-z0-9 ]{1,10}$/.test(line) &&
+    (color === null || (isString(color) && /^#[0-9a-fA-F]{6}$/.test(color))) &&
+    isTravelMode(vehicle) &&
+    from !== null &&
+    to !== null &&
+    (headsign === '' || isName(headsign)) &&
+    isCount(200)(stops)
+    ? { line, color, vehicle, from, to, headsign: headsign as string, stops }
+    : null;
+};
+
+const parseSegment = (value: unknown): Segment | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const { mode, minutes, meters } = value;
+  const path = parseList(value['path'], 1000, parsePoint);
+  const ride = value['ride'] === null ? null : parseRide(value['ride']);
+  return (mode === 'walk' || mode === 'bike' || mode === 'ride') &&
+    isMinutes(minutes) &&
+    isMeters(meters) &&
+    path !== null &&
+    (mode === 'ride') === (ride !== null)
+    ? { mode, minutes, meters, path, ride }
+    : null;
+};
+
 const parseOption = (value: unknown): LegOption | null => {
   if (!isRecord(value) || !isTravelMode(value['mode'])) {
     return null;
   }
   const minutes = value['minutes'];
   const steps = value['steps'] === undefined ? [] : parseList(value['steps'], 5, parseStep);
-  return typeof minutes === 'number' &&
-    Number.isInteger(minutes) &&
-    minutes >= 0 &&
-    minutes <= 600 &&
-    steps !== null
-    ? { mode: value['mode'], minutes, steps }
+  const segments =
+    value['segments'] === undefined ? [] : parseList(value['segments'], 20, parseSegment);
+  return isMinutes(minutes) && steps !== null && segments !== null
+    ? { mode: value['mode'], minutes, steps, segments }
     : null;
 };
 

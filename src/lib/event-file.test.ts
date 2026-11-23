@@ -15,7 +15,7 @@ describe('parseEventFile', () => {
     expect(parseEventFile(event)).toEqual({ ...event, legs: [] });
     const legs = [{ options: [{ mode: 'walk', minutes: 13 }] }];
     expect(parseEventFile({ ...event, legs })?.legs).toEqual([
-      { options: [{ mode: 'walk', minutes: 13, steps: [] }], path: [] },
+      { options: [{ mode: 'walk', minutes: 13, steps: [], segments: [] }], path: [] },
     ]);
   });
 

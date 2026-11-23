@@ -88,19 +88,24 @@ export interface DemoEvent {
 const DEMO_LEGS: readonly Leg[] = [
   {
     options: [
-      { mode: 'walk', minutes: 12, steps: [] },
-      { mode: 'bike', minutes: 5, steps: [] },
+      { mode: 'walk', minutes: 12, steps: [], segments: [] },
+      { mode: 'bike', minutes: 5, steps: [], segments: [] },
     ],
     path: [],
   },
   {
     options: [
-      { mode: 'metro', minutes: 18, steps: [{ line: 'L3', from: 'Paral·lel', to: 'Fontana' }] },
-      { mode: 'bike', minutes: 14, steps: [] },
+      {
+        mode: 'metro',
+        minutes: 18,
+        steps: [{ line: 'L3', from: 'Paral·lel', to: 'Fontana' }],
+        segments: [],
+      },
+      { mode: 'bike', minutes: 14, steps: [], segments: [] },
     ],
     path: [],
   },
-  { options: [{ mode: 'walk', minutes: 6, steps: [] }], path: [] },
+  { options: [{ mode: 'walk', minutes: 6, steps: [], segments: [] }], path: [] },
 ];
 
 const DEMO_EVENT: DemoEvent = { name: 'Correpisos de prova', stops: DEMO_STOPS, legs: DEMO_LEGS };

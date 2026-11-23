@@ -2,13 +2,21 @@ import 'leaflet/dist/leaflet.css';
 
 import { divIcon, latLngBounds, type LatLngExpression } from 'leaflet';
 import { useMemo, useState } from 'react';
-import { MapContainer, Marker, Polyline, useMap, useMapEvent } from 'react-leaflet';
+import {
+  CircleMarker,
+  MapContainer,
+  Marker,
+  Polyline,
+  Tooltip,
+  useMap,
+  useMapEvent,
+} from 'react-leaflet';
 
 import { clusterPoints } from '../lib/cluster';
 import { centroid } from '../lib/geo';
 import { countByStop, type PlacedPhoto, placedPhotos } from '../lib/selectors';
 import type { PhotoView, Snapshot } from '../lib/snapshot';
-import { type LegStyle, legStyle } from '../lib/transit';
+import { chosenOption, type LegStyle, legStyle, segmentStyle } from '../lib/transit';
 import type { LatLng, Stop } from '../lib/types';
 import { BaseMap } from './base-map';
 
@@ -17,6 +25,8 @@ interface MapViewProps {
   readonly onSelectStop: (stop: Stop) => void;
   readonly onOpenPhoto: (photo: PhotoView) => void;
   readonly onOpenGroup: (photos: readonly PhotoView[]) => void;
+  /** Which option is shown for each leg (by leg index); the first by default. */
+  readonly choices: ReadonlyMap<number, number>;
 }
 
 const BARCELONA: LatLngExpression = [41.3874, 2.1686];
@@ -81,20 +91,53 @@ const groupIcon = (photos: readonly PlacedPhoto[]) =>
 
 const PLAIN_ROUTE: LegStyle = { color: ROUTE_COLOR, dashArray: '6 10', weight: 4 };
 
+interface RouteLine {
+  readonly key: string;
+  readonly positions: readonly [number, number][];
+  readonly style: LegStyle;
+}
+
 /**
- * One line per leg, from stop N to stop N + 1 through the leg's waypoints,
- * styled by how you get there. Without an itinerary: a plain dashed route.
+ * The lines to draw for each leg, from stop N to stop N + 1:
+ * - a planned option (from `pnpm event:route`): every segment along its real
+ *   path, walks dotted and rides in their line colour;
+ * - otherwise a single line through the leg's waypoints, styled by mode;
+ * - without an itinerary, a plain dashed route.
  */
-const legLines = (snapshot: Snapshot) =>
-  snapshot.stops.slice(1).map((to, index) => {
+const routeLines = (snapshot: Snapshot, choices: ReadonlyMap<number, number>) =>
+  snapshot.stops.slice(1).flatMap((to, index): readonly RouteLine[] => {
     const from = snapshot.stops[index] ?? to;
     const leg = snapshot.legs[index];
-    return {
-      key: `${from.id}-${to.id}`,
-      positions: [from.position, ...(leg?.path ?? []), to.position].map(toTuple),
-      style: leg === undefined ? PLAIN_ROUTE : legStyle(leg),
-    };
+    const option = leg === undefined ? undefined : chosenOption(leg, choices.get(index));
+    if (option !== undefined && option.segments.length > 0) {
+      return option.segments.map((segment, part) => ({
+        key: `${from.id}-${to.id}-${String(part)}`,
+        positions: segment.path.map(toTuple),
+        style: segmentStyle(segment),
+      }));
+    }
+    return [
+      {
+        key: `${from.id}-${to.id}`,
+        positions: [from.position, ...(leg?.path ?? []), to.position].map(toTuple),
+        style: leg === undefined ? PLAIN_ROUTE : legStyle(leg),
+      },
+    ];
   });
+
+/** Stations where you board or get off, for the options being shown. */
+const stationsOf = (snapshot: Snapshot, choices: ReadonlyMap<number, number>) =>
+  snapshot.legs.flatMap((leg, index) =>
+    (chosenOption(leg, choices.get(index))?.segments ?? []).flatMap(({ ride }) =>
+      ride === null
+        ? []
+        : [ride.from, ride.to].map((station) => ({
+            key: `${String(index)}-${ride.line}-${station.name}`,
+            station,
+            color: segmentStyle({ mode: 'ride', minutes: 0, meters: 0, path: [], ride }).color,
+          })),
+    ),
+  );
 
 /** Photos closer than this on screen (in pixels) are shown as one group. */
 const GROUP_RADIUS = 48;
@@ -158,7 +201,13 @@ const PhotoPins = ({ photos, onOpenPhoto, onOpenGroup }: PhotoPinsProps) => {
   });
 };
 
-export const MapView = ({ snapshot, onSelectStop, onOpenPhoto, onOpenGroup }: MapViewProps) => {
+export const MapView = ({
+  snapshot,
+  onSelectStop,
+  onOpenPhoto,
+  onOpenGroup,
+  choices,
+}: MapViewProps) => {
   const counts = useMemo(() => countByStop(snapshot.photos), [snapshot.photos]);
   const placed = useMemo(() => placedPhotos(snapshot.photos), [snapshot.photos]);
   const route = snapshot.stops.map(({ position }) => toTuple(position));
@@ -175,18 +224,31 @@ export const MapView = ({ snapshot, onSelectStop, onOpenPhoto, onOpenGroup }: Ma
       maxZoom={18}
     >
       <BaseMap />
-      {legLines(snapshot).map(({ key, positions, style }) => (
+      {routeLines(snapshot, choices).map(({ key, positions, style }) => (
         <Polyline
           key={key}
-          positions={positions}
+          positions={[...positions]}
           pathOptions={{
             color: style.color,
             weight: style.weight,
-            opacity: 0.85,
+            opacity: 0.9,
             lineCap: 'round',
+            lineJoin: 'round',
             ...(style.dashArray === null ? {} : { dashArray: style.dashArray }),
           }}
         />
+      ))}
+      {stationsOf(snapshot, choices).map(({ key, station, color }) => (
+        <CircleMarker
+          key={key}
+          center={toTuple(station.position)}
+          radius={5}
+          pathOptions={{ color, weight: 3, fillColor: '#ffffff', fillOpacity: 1 }}
+        >
+          <Tooltip direction="top" offset={[0, -6]}>
+            {station.name}
+          </Tooltip>
+        </CircleMarker>
       ))}
       {snapshot.stops.map((stop) => (
         <Marker

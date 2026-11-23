@@ -111,7 +111,30 @@ Entries are uploaded with the tag. `meta` is one of:
 
 `mode` is one of `metro`, `train`, `tram`, `bus`, `walk`, `bike`; `minutes` is an integer from 0 to
 600; `steps` (≤ 5) and `path` (≤ 200 waypoints) are optional; a leg has at most 5 options and an
-event at most 50 legs; `line` matches `[A-Za-z0-9]{1,6}`. The first option is the one drawn on the
+event at most 50 legs; `line` matches `[A-Za-z0-9]{1,6}`. An option may also carry `segments` (≤ 20), the detailed route produced by
+`pnpm event:route` from the Google Routes API on the organizer's computer:
+
+```json
+{
+  "mode": "ride",
+  "minutes": 5,
+  "meters": 2400,
+  "path": [{ "lat": 41.4, "lng": 2.16 }],
+  "ride": {
+    "line": "L4",
+    "color": "#FFC20E",
+    "vehicle": "metro",
+    "headsign": "Trinitat Nova",
+    "stops": 3,
+    "from": { "name": "Joanic", "position": { "lat": 41.4, "lng": 2.16 } },
+    "to": { "name": "Verdaguer", "position": { "lat": 41.39, "lng": 2.17 } }
+  }
+}
+```
+
+`mode` is `walk`, `bike` or `ride` (a ride requires `ride`, the others require `ride: null`);
+`path` has at most 1000 points; `color` is `#rrggbb` or `null`; `line` matches
+`[A-Za-z0-9 ]{1,10}`. The first option is the one drawn on the
 map. The itinerary is part of the event entry, so it is signed by the organizer.
 
 Parsing is strict: unknown kinds are dropped, unknown fields are discarded, strings are bounded

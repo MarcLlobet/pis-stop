@@ -1,4 +1,4 @@
-import type { Leg, LegOption, TravelMode } from './types';
+import type { Leg, LegOption, Segment, TravelMode } from './types';
 
 /** Official colours of the Barcelona metro lines (TMB / FGC). */
 const LINE_COLORS: Readonly<Record<string, string>> = {
@@ -57,3 +57,34 @@ export const legStyle = (leg: Leg): LegStyle => {
 };
 
 export const modeColor = (mode: TravelMode): string => MODE_COLORS[mode];
+
+/** How one segment of a planned route is drawn: rides in their line colour. */
+export const segmentStyle = (segment: Segment): LegStyle => {
+  switch (segment.mode) {
+    case 'walk':
+      return { color: MODE_COLORS.walk, dashArray: '1 8', weight: 4 };
+    case 'bike':
+      return { color: MODE_COLORS.bike, dashArray: '10 8', weight: 4 };
+    case 'ride':
+      return {
+        color:
+          segment.ride?.color ??
+          lineColor(segment.ride?.line ?? '') ??
+          MODE_COLORS[segment.ride?.vehicle ?? 'metro'],
+        dashArray: null,
+        weight: 6,
+      };
+  }
+};
+
+/** The option shown for a leg: the chosen one, or the first. */
+export const chosenOption = (leg: Leg, choice: number | undefined): LegOption | undefined =>
+  leg.options[choice ?? 0] ?? leg.options[0];
+
+/** Minutes spent walking in an option (all of it, for a walking option). */
+export const walkingMinutes = (option: LegOption): number =>
+  option.mode === 'walk'
+    ? option.minutes
+    : option.segments
+        .filter(({ mode }) => mode === 'walk')
+        .reduce((sum, { minutes }) => sum + minutes, 0);

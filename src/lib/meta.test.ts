@@ -93,7 +93,13 @@ describe('parseLegs', () => {
 
   it('fills in optional fields and drops unknown ones', () => {
     expect(parseLegs([{ options: [metro, { mode: 'walk', minutes: 13, extra: 1 }] }])).toEqual([
-      { options: [metro, { mode: 'walk', minutes: 13, steps: [] }], path: [] },
+      {
+        options: [
+          { ...metro, segments: [] },
+          { mode: 'walk', minutes: 13, steps: [], segments: [] },
+        ],
+        path: [],
+      },
     ]);
   });
 
