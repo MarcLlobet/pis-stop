@@ -1,7 +1,13 @@
-import { utf8 } from './encoding';
+import { fromUtf8, utf8 } from './encoding';
 import { escapeHtml } from './html';
-import { type EventRepository, photoEntry, profileEntry, type RepositoryDeps } from './repository';
-import { buildSnapshot, toPhotoView, toProfileView } from './snapshot';
+import {
+  type EncodedImage,
+  type EventRepository,
+  photoEntry,
+  profileEntry,
+  type RepositoryDeps,
+} from './repository';
+import { buildSnapshot, type ToImageUrl, toPhotoView, toProfileView } from './snapshot';
 import type { Entry, LatLng, Stop } from './types';
 
 const SVG = 'image/svg+xml';
@@ -34,10 +40,10 @@ const DEMO_STOPS: readonly Stop[] = [
 }));
 
 const DEMO_FRIENDS = [
-  { id: 'friend-julia', name: 'Júlia', hue: 340 },
-  { id: 'friend-biel', name: 'Biel', hue: 200 },
-  { id: 'friend-anna', name: 'Anna', hue: 140 },
-] as const;
+  { name: 'Júlia', hue: 340 },
+  { name: 'Biel', hue: 200 },
+  { name: 'Anna', hue: 140 },
+].map((friend, index) => ({ ...friend, id: `friend-${index + 1}`, publicKey: 'demo' }));
 
 const DEMO_PHOTOS = [
   { author: 0, stop: 0, label: 'Vermut', hue: 20, minutes: 0 },
@@ -49,27 +55,42 @@ const DEMO_PHOTOS = [
 ] as const;
 
 const START = Date.UTC(2026, 11, 12, 12, 0);
+const NO_HASH = '0'.repeat(64);
 
 const jitter = ({ lat, lng }: LatLng, seed: number): LatLng => ({
   lat: lat + Math.sin(seed) * 0.0002,
   lng: lng + Math.cos(seed) * 0.0002,
 });
 
+const svgImage = (svg: string, width: number, height: number): EncodedImage => ({
+  bytes: utf8(svg),
+  type: SVG,
+  width,
+  height,
+});
+
+/**
+ * Demo pictures become `data:` URLs, never same-origin `blob:` URLs, so even
+ * the demo's own SVGs cannot run in this origin.
+ */
+const demoToUrl =
+  (toUrl: ToImageUrl): ToImageUrl =>
+  (bytes, type) =>
+    type === SVG ? dataUrl(fromUtf8(bytes)) : toUrl(bytes, type);
+
 export const demoEntries = (): readonly Entry[] => [
-  { meta: { kind: 'event', name: 'Correpisos de prova' }, payload: new Uint8Array(0) },
+  {
+    meta: { kind: 'event', name: 'Correpisos de prova', organizerKey: 'demo' },
+    payload: new Uint8Array(0),
+  },
   ...DEMO_STOPS.map((meta): Entry => ({ meta, payload: new Uint8Array(0) })),
   ...DEMO_FRIENDS.map((friend) =>
     profileEntry(
+      friend,
       {
-        id: friend.id,
         name: friend.name,
         email: `${friend.name.toLowerCase()}@example.com`,
-        avatar: {
-          bytes: utf8(avatarSvg(friend.name, friend.hue)),
-          type: SVG,
-          width: 96,
-          height: 96,
-        },
+        avatar: svgImage(avatarSvg(friend.name, friend.hue), 96, 96),
       },
       new Date(START),
     ),
@@ -80,21 +101,17 @@ export const demoEntries = (): readonly Entry[] => [
     return stop && author
       ? [
           photoEntry(
+            author.id,
             {
-              authorId: author.id,
               stopId: stop.id,
               position: jitter(stop.position, index),
-              full: { bytes: utf8(''), type: SVG, width: 1200, height: 900 },
-              thumb: {
-                bytes: utf8(tileSvg(photo.label, photo.hue)),
-                type: SVG,
-                width: 400,
-                height: 300,
-              },
+              full: svgImage('', 1200, 900),
+              thumb: svgImage(tileSvg(photo.label, photo.hue), 400, 300),
             },
             {
               id: `demo-photo-${index + 1}`,
-              fullUrl: dataUrl(tileSvg(photo.label, photo.hue, 1200, 900)),
+              url: dataUrl(tileSvg(photo.label, photo.hue, 1200, 900)),
+              sha256: NO_HASH,
             },
             new Date(START + photo.minutes * 60_000),
           ),
@@ -104,23 +121,27 @@ export const demoEntries = (): readonly Entry[] => [
 ];
 
 /**
- * A repository that keeps nothing: uploads only live in the visitor's tab, so
- * the public demo can be played with freely.
+ * A repository that keeps nothing and verifies nothing: uploads only live in
+ * the visitor's tab, so the public demo can be played with freely.
  */
-export const createDemoRepository = (deps: RepositoryDeps): EventRepository => ({
-  load: () => Promise.resolve(buildSnapshot(demoEntries(), deps.toUrl)),
-  publishProfile: (input) =>
-    Promise.resolve(toProfileView(profileEntry(input, deps.now()), deps.toUrl)),
-  publishPhoto: (input) =>
-    Promise.resolve(
-      toPhotoView(
-        photoEntry(
-          input,
-          { id: deps.newId(), fullUrl: deps.toUrl(input.full.bytes, input.full.type) },
-          deps.now(),
+export const createDemoRepository = (deps: RepositoryDeps): EventRepository => {
+  const toUrl = demoToUrl(deps.toUrl);
+  return {
+    load: () => Promise.resolve(buildSnapshot(demoEntries(), toUrl)),
+    publishProfile: (identity, input) =>
+      Promise.resolve(toProfileView(profileEntry(identity, input, deps.now()), toUrl)),
+    publishPhoto: (identity, input) =>
+      Promise.resolve(
+        toPhotoView(
+          photoEntry(
+            identity.id,
+            input,
+            { id: deps.newId(), url: toUrl(input.full.bytes, input.full.type), sha256: NO_HASH },
+            deps.now(),
+          ),
+          toUrl,
         ),
-        deps.toUrl,
       ),
-    ),
-  openPhoto: (photo) => Promise.resolve(photo.fullUrl),
-});
+    openPhoto: (photo) => Promise.resolve(photo.fullUrl),
+  };
+};

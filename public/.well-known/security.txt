@@ -1,0 +1,5 @@
+Contact: https://github.com/MarcLlobet/pis-stop/security/advisories/new
+Expires: 2027-11-23T00:00:00.000Z
+Preferred-Languages: ca, es, en
+Policy: https://github.com/MarcLlobet/pis-stop/blob/main/SECURITY.md
+Canonical: https://marcllobet.github.io/pis-stop/.well-known/security.txt

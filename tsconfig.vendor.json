@@ -1,0 +1,29 @@
+{
+  // Untitled UI components, vendored byte-for-byte from upstream (see
+  // THIRD_PARTY_NOTICES.md). Strict, but without the extra flags our own code
+  // uses, so they compile unmodified. The app sees them through their .d.ts.
+  "compilerOptions": {
+    "composite": true,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "outDir": "./node_modules/.tmp/vendor",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.vendor.tsbuildinfo",
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "rootDir": "./src",
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": [
+    "src/components/base",
+    "src/components/application",
+    "src/components/foundations",
+    "src/utils"
+  ]
+}

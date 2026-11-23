@@ -14,6 +14,7 @@ const stop: Stop = {
 const profile: Profile = {
   kind: 'profile',
   id: 'p1',
+  publicKey: 'BKey_-1',
   name: 'Júlia',
   email: 'julia@example.com',
   imageType: 'image/jpeg',
@@ -28,6 +29,7 @@ const photo: Photo = {
   position: { lat: 41.38, lng: 2.16 },
   takenAt: '2026-12-12T12:30:00.000Z',
   fullUrl: 'https://example.com/full',
+  fullSha256: 'f'.repeat(64),
   imageType: 'image/jpeg',
   width: 1600,
   height: 1200,
@@ -45,7 +47,7 @@ describe('isLatLng', () => {
 
 describe('parseMeta', () => {
   it.each([
-    ['event', { kind: 'event', name: 'Correpisos 2026' }],
+    ['event', { kind: 'event', name: 'Correpisos 2026', organizerKey: 'BKey' }],
     ['stop', stop],
     ['profile', profile],
     ['photo', photo],
@@ -62,7 +64,13 @@ describe('parseMeta', () => {
     ['null', null],
     ['an array', []],
     ['an unknown kind', { kind: 'secret' }],
-    ['an event without name', { kind: 'event', name: '' }],
+    ['an event without name', { kind: 'event', name: '', organizerKey: 'k' }],
+    ['an event without organizer key', { kind: 'event', name: 'x' }],
+    ['a name that is too long', { ...stop, name: 'x'.repeat(81) }],
+    ['an id with unsafe characters', { ...stop, id: '../etc' }],
+    ['an SVG avatar (scripts!)', { ...profile, imageType: 'image/svg+xml' }],
+    ['a photo with a bad hash', { ...photo, fullSha256: 'xyz' }],
+    ['a photo with an invalid date', { ...photo, takenAt: 'ahir' }],
     ['a stop with bad coordinates', { ...stop, position: { lat: 'x', lng: 2 } }],
     ['a profile without id', { ...profile, id: '' }],
     ['a profile with a numeric email', { ...profile, email: 3 }],

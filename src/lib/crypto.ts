@@ -1,18 +1,40 @@
 import { concatBytes, toHex, utf8 } from './encoding';
+import { frame, unframe } from './padding';
 import type { Bytes } from './types';
 
 export const SECRET_BYTES = 32;
+export const FORMAT_VERSION = 1;
 const IV_BYTES = 12;
 const SALT = utf8('pis-stop/v1');
 
 export interface EventKeys {
   /** Cloudinary tag under which the event's entries are listed. */
   readonly tag: string;
-  /** AES-GCM key that seals every entry and every full-size photo. */
+  /** Non-extractable AES-256-GCM key: usable by this page, never readable. */
   readonly aes: CryptoKey;
+  /** Fingerprint of the organizer's public key, taken from the invite. */
+  readonly organizer: string;
 }
 
+/**
+ * What a ciphertext is for. It is bound as AES-GCM associated data, so a blob
+ * made for one purpose can never be accepted as another (domain separation).
+ */
+export type Purpose =
+  | { readonly kind: 'entry' }
+  | { readonly kind: 'photo'; readonly photoId: string };
+
+export const ENTRY: Purpose = { kind: 'entry' };
+
+export const associatedData = (purpose: Purpose): Bytes =>
+  utf8(
+    `pis-stop/v${FORMAT_VERSION}/${purpose.kind === 'entry' ? 'entry' : `photo/${purpose.photoId}`}`,
+  );
+
 export const generateSecret = (): Bytes => crypto.getRandomValues(new Uint8Array(SECRET_BYTES));
+
+export const sha256Hex = async (data: Bytes): Promise<string> =>
+  toHex(await crypto.subtle.digest('SHA-256', data));
 
 const hkdf = (info: string): HkdfParams => ({
   name: 'HKDF',
@@ -23,9 +45,10 @@ const hkdf = (info: string): HkdfParams => ({
 
 /**
  * Derives independent values from the 256-bit event secret. The secret is
- * already high-entropy, so a fast KDF (HKDF) is enough: no stretching needed.
+ * already uniformly random, so HKDF is enough: no password stretching needed.
+ * The raw secret is not kept: only the derived, non-extractable key is.
  */
-export const deriveEventKeys = async (secret: Bytes): Promise<EventKeys> => {
+export const deriveEventKeys = async (secret: Bytes, organizer: string): Promise<EventKeys> => {
   if (secret.length !== SECRET_BYTES) {
     throw new RangeError(`The event secret must be ${SECRET_BYTES} bytes`);
   }
@@ -40,28 +63,54 @@ export const deriveEventKeys = async (secret: Bytes): Promise<EventKeys> => {
       'decrypt',
     ]),
   ]);
-  return { tag: `ps_${toHex(tagBits)}`, aes };
+  return { tag: `ps_${toHex(tagBits)}`, aes, organizer };
 };
 
-/** Output layout: [ 12-byte random IV ][ ciphertext + 16-byte auth tag ]. */
-export const seal = async (key: CryptoKey, plain: Bytes): Promise<Bytes> => {
-  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
-  const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plain);
-  return concatBytes([iv, new Uint8Array(cipher)]);
+/**
+ * Deterministic core of `seal`, exported for known-answer tests only.
+ * Output: [ version (1 byte) ][ IV (12 bytes) ][ AES-GCM ciphertext + 16-byte tag ].
+ */
+export const sealWithIv = async (
+  key: CryptoKey,
+  plain: Bytes,
+  purpose: Purpose,
+  iv: Bytes,
+): Promise<Bytes> => {
+  if (iv.length !== IV_BYTES) {
+    throw new RangeError(`The IV must be ${IV_BYTES} bytes`);
+  }
+  const cipher = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv, additionalData: associatedData(purpose) },
+    key,
+    await frame(plain),
+  );
+  return concatBytes([Uint8Array.of(FORMAT_VERSION), iv, new Uint8Array(cipher)]);
 };
 
-/** Returns `null` for tampered data or a wrong key instead of throwing. */
-export const open = async (key: CryptoKey, sealed: Bytes): Promise<Bytes | null> => {
-  if (sealed.length <= IV_BYTES) {
+/** A fresh random 96-bit IV per message: safe far beyond this app's volume. */
+export const seal = (key: CryptoKey, plain: Bytes, purpose: Purpose): Promise<Bytes> =>
+  sealWithIv(key, plain, purpose, crypto.getRandomValues(new Uint8Array(IV_BYTES)));
+
+/** Returns `null` for a wrong key, wrong purpose, unknown version or tampering. */
+export const open = async (
+  key: CryptoKey,
+  sealed: Bytes,
+  purpose: Purpose,
+): Promise<Bytes | null> => {
+  if (sealed.length <= 1 + IV_BYTES || sealed[0] !== FORMAT_VERSION) {
     return null;
   }
   try {
-    const plain = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: sealed.slice(0, IV_BYTES) },
+    const framed = await crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv: sealed.slice(1, 1 + IV_BYTES),
+        additionalData: associatedData(purpose),
+      },
       key,
-      sealed.slice(IV_BYTES),
+      sealed.slice(1 + IV_BYTES),
     );
-    return new Uint8Array(plain);
+    return unframe(new Uint8Array(framed));
   } catch {
     return null;
   }

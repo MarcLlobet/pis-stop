@@ -1,14 +1,16 @@
 {
   "name": "pis-stop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Mapa privat de fotos per a un correpisos entre amics. Xifrat al navegador, sense backend.",
+  "description": "Mapa privat de fotos per a un correpisos entre amics. Xifrat i signat al navegador, sense backend.",
   "license": "MIT",
   "author": "Marc Llobet",
   "repository": "github:MarcLlobet/pis-stop",
   "type": "module",
+  "packageManager": "pnpm@10.28.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18",
+    "pnpm": ">=10.16"
   },
   "scripts": {
     "dev": "vite",
@@ -22,18 +24,23 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run coverage",
+    "check:ts-only": "ts-only",
+    "check": "pnpm check:ts-only && pnpm format:check && pnpm lint && pnpm typecheck && pnpm coverage",
+    "manifest": "tsx scripts/build-manifest.ts dist",
     "event:create": "tsx scripts/create-event.ts"
   },
   "dependencies": {
+    "@untitledui/icons": "^0.0.23",
     "leaflet": "^1.9.4",
     "react": "^19.2.0",
+    "react-aria-components": "^1.21.0",
     "react-dom": "^19.2.0",
-    "react-leaflet": "^5.0.0"
+    "react-leaflet": "^5.0.0",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
-    "@tailwindcss/vite": "^4.1.0",
+    "@tailwindcss/vite": "^4.3.0",
     "@testing-library/jest-dom": "^6.9.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -51,10 +58,14 @@
     "eslint-plugin-react-hooks": "^7.0.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "globals": "^16.4.0",
+    "jiti": "^2.7.0",
     "jsdom": "^27.0.0",
     "prettier": "^3.6.2",
     "qrcode": "^1.5.4",
-    "tailwindcss": "^4.1.0",
+    "tailwindcss": "^4.3.0",
+    "tailwindcss-animate": "^1.0.7",
+    "tailwindcss-react-aria-components": "^2.2.0",
+    "ts-only": "^2.0.0",
     "tsx": "^4.20.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.0",

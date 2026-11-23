@@ -1,6 +1,7 @@
 import type { CloudinaryClient } from './cloudinary';
-import { type EventKeys, open, seal } from './crypto';
-import { packEntry, unpackEntry } from './pack';
+import { ENTRY, type EventKeys, open, seal, sha256Hex } from './crypto';
+import type { Identity } from './identity';
+import { packSigned, unpackSigned } from './pack';
 import {
   buildSnapshot,
   type PhotoView,
@@ -10,7 +11,8 @@ import {
   toPhotoView,
   toProfileView,
 } from './snapshot';
-import type { Bytes, Entry, LatLng, Meta, Photo, Profile } from './types';
+import type { Bytes, Entry, LatLng, Meta, Photo, Profile, SignedEntry } from './types';
+import { verifyEntries } from './verify';
 
 export interface EncodedImage {
   readonly bytes: Bytes;
@@ -20,14 +22,12 @@ export interface EncodedImage {
 }
 
 export interface NewProfile {
-  readonly id: string;
   readonly name: string;
   readonly email: string;
   readonly avatar: EncodedImage | null;
 }
 
 export interface NewPhoto {
-  readonly authorId: string;
   readonly stopId: string | null;
   readonly position: LatLng | null;
   readonly full: EncodedImage;
@@ -37,8 +37,8 @@ export interface NewPhoto {
 /** Everything the UI needs, independent of where the data lives. */
 export interface EventRepository {
   readonly load: () => Promise<Snapshot>;
-  readonly publishProfile: (profile: NewProfile) => Promise<ProfileView>;
-  readonly publishPhoto: (photo: NewPhoto) => Promise<PhotoView>;
+  readonly publishProfile: (identity: Identity, profile: NewProfile) => Promise<ProfileView>;
+  readonly publishPhoto: (identity: Identity, photo: NewPhoto) => Promise<PhotoView>;
   /** Resolves with a URL for the full-size image. */
   readonly openPhoto: (photo: Photo) => Promise<string>;
 }
@@ -49,14 +49,27 @@ export interface RepositoryDeps {
   readonly now: () => Date;
 }
 
+/** Hard limits: a group member must not be able to exhaust everyone's memory. */
+export const MAX_ENTRY_BYTES = 1024 * 1024;
+export const MAX_PHOTO_BYTES = 12 * 1024 * 1024;
+
 const EMPTY: Bytes = new Uint8Array(0);
 
-export const profileEntry = (input: NewProfile, createdAt: Date): Entry<Profile> => ({
+/** Images from the network must start with the JPEG magic number. */
+export const isJpeg = (bytes: Bytes): boolean =>
+  bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+
+export const profileEntry = (
+  identity: Pick<Identity, 'id' | 'publicKey'>,
+  input: NewProfile,
+  createdAt: Date,
+): Entry<Profile> => ({
   meta: {
     kind: 'profile',
-    id: input.id,
-    name: input.name.trim(),
-    email: input.email.trim(),
+    id: identity.id,
+    publicKey: identity.publicKey,
+    name: input.name.trim().slice(0, 80),
+    email: input.email.trim().slice(0, 254),
     imageType: input.avatar?.type ?? 'image/jpeg',
     createdAt: createdAt.toISOString(),
   },
@@ -64,18 +77,20 @@ export const profileEntry = (input: NewProfile, createdAt: Date): Entry<Profile>
 });
 
 export const photoEntry = (
+  authorId: string,
   input: NewPhoto,
-  ids: { readonly id: string; readonly fullUrl: string },
+  full: { readonly id: string; readonly url: string; readonly sha256: string },
   takenAt: Date,
 ): Entry<Photo> => ({
   meta: {
     kind: 'photo',
-    id: ids.id,
-    authorId: input.authorId,
+    id: full.id,
+    authorId,
     stopId: input.stopId,
     position: input.position,
     takenAt: takenAt.toISOString(),
-    fullUrl: ids.fullUrl,
+    fullUrl: full.url,
+    fullSha256: full.sha256,
     imageType: input.full.type,
     width: input.full.width,
     height: input.full.height,
@@ -83,26 +98,41 @@ export const photoEntry = (
   payload: input.thumb.bytes,
 });
 
-/** Packs, encrypts and uploads one entry under the event tag. */
+/** Signs, encrypts and uploads one entry under the event tag. */
 export const publishEntry = async <M extends Meta>(
   client: CloudinaryClient,
   keys: EventKeys,
   entry: Entry<M>,
-): Promise<string> => client.upload(await seal(keys.aes, await packEntry(entry)), [keys.tag]);
+  signer: CryptoKey,
+): Promise<string> =>
+  client.upload(await seal(keys.aes, await packSigned(entry, signer), ENTRY), [keys.tag]);
 
 /** Downloads and decrypts one entry. Anything unreadable resolves to `null`. */
 const readEntry = async (
   client: CloudinaryClient,
   keys: EventKeys,
   url: string,
-): Promise<Entry | null> => {
-  const plain = await open(keys.aes, await client.download(url));
-  return plain && unpackEntry(plain);
+): Promise<SignedEntry | null> => {
+  const plain = await open(keys.aes, await client.download(url, MAX_ENTRY_BYTES), ENTRY);
+  return plain && unpackSigned(plain);
 };
 
-const isEntry = (
-  result: PromiseSettledResult<Entry | null>,
-): result is PromiseFulfilledResult<Entry> =>
+/** Drops entries that would make the app show non-JPEG data or fetch foreign URLs. */
+const isSafe =
+  (client: CloudinaryClient) =>
+  ({ meta, payload }: Entry): boolean => {
+    switch (meta.kind) {
+      case 'photo':
+        return isJpeg(payload) && client.owns(meta.fullUrl);
+      case 'profile':
+        return payload.length === 0 || isJpeg(payload);
+      case 'event':
+      case 'stop':
+        return true;
+    }
+  };
+
+const isEntry = <T>(result: PromiseSettledResult<T | null>): result is PromiseFulfilledResult<T> =>
   result.status === 'fulfilled' && result.value !== null;
 
 export const createCloudinaryRepository = (
@@ -114,31 +144,42 @@ export const createCloudinaryRepository = (
     const urls = await client.list(keys.tag);
     // One broken upload must not hide everybody else's photos.
     const results = await Promise.allSettled(urls.map((url) => readEntry(client, keys, url)));
-    return buildSnapshot(
+    const verified = await verifyEntries(
       results.filter(isEntry).map((result) => result.value),
-      deps.toUrl,
+      keys.organizer,
     );
+    return buildSnapshot(verified.filter(isSafe(client)), deps.toUrl);
   },
 
-  publishProfile: async (input) => {
-    const entry = profileEntry(input, deps.now());
-    await publishEntry(client, keys, entry);
+  publishProfile: async (identity, input) => {
+    const entry = profileEntry(identity, input, deps.now());
+    await publishEntry(client, keys, entry, identity.privateKey);
     return toProfileView(entry, deps.toUrl);
   },
 
-  publishPhoto: async (input) => {
-    // The full image is uploaded untagged: only its (encrypted) entry links to it.
-    const fullUrl = await client.upload(await seal(keys.aes, input.full.bytes), []);
-    const entry = photoEntry(input, { id: deps.newId(), fullUrl }, deps.now());
-    await publishEntry(client, keys, entry);
+  publishPhoto: async (identity, input) => {
+    const id = deps.newId();
+    // The full image is uploaded untagged and bound to this photo id: only the
+    // signed entry below points to it, and it cannot be reused for another photo.
+    const [url, sha256] = await Promise.all([
+      seal(keys.aes, input.full.bytes, { kind: 'photo', photoId: id }).then((sealed) =>
+        client.upload(sealed, []),
+      ),
+      sha256Hex(input.full.bytes),
+    ]);
+    const entry = photoEntry(identity.id, input, { id, url, sha256 }, deps.now());
+    await publishEntry(client, keys, entry, identity.privateKey);
     return toPhotoView(entry, deps.toUrl);
   },
 
   openPhoto: async (photo) => {
-    const plain = await open(keys.aes, await client.download(photo.fullUrl));
-    if (plain === null) {
-      throw new Error('This photo could not be decrypted');
+    const plain = await open(keys.aes, await client.download(photo.fullUrl, MAX_PHOTO_BYTES), {
+      kind: 'photo',
+      photoId: photo.id,
+    });
+    if (plain === null || !isJpeg(plain) || (await sha256Hex(plain)) !== photo.fullSha256) {
+      throw new Error('This photo failed its integrity check');
     }
-    return deps.toUrl(plain, photo.imageType);
+    return deps.toUrl(plain, 'image/jpeg');
   },
 });

@@ -1,8 +1,9 @@
 import type { RepositoryDeps } from '../lib/repository';
 import type { ToImageUrl } from '../lib/snapshot';
-import { fromWebStorage } from '../lib/storage';
+import { createBrowserKeyStore } from './key-store';
 
-export const browserStore = fromWebStorage(() => window.localStorage);
+/** Created once: IndexedDB when available, memory otherwise. */
+export const browserKeyStore = createBrowserKeyStore();
 
 export const toObjectUrl: ToImageUrl = (bytes, type) =>
   URL.createObjectURL(new Blob([bytes], { type }));
@@ -13,7 +14,19 @@ export const browserDeps: RepositoryDeps = {
   now: () => new Date(),
 };
 
-/** Removes the invite fragment so the secret does not linger in the address bar. */
+export const readLocationHash = (): string => window.location.hash;
+
+/** Removes the invite fragment so the secret does not stay in the address bar or history entry. */
 export const clearLocationHash = (): void => {
   window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+};
+
+/** Untitled UI switches to dark mode with a `.dark-mode` class on the root. */
+export const followSystemColorScheme = (): void => {
+  const query = window.matchMedia('(prefers-color-scheme: dark)');
+  const apply = (): void => {
+    document.documentElement.classList.toggle('dark-mode', query.matches);
+  };
+  apply();
+  query.addEventListener('change', apply);
 };

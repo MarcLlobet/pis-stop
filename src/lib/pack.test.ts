@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { concatBytes, utf8 } from './encoding';
-import { packEntry, unpackEntry } from './pack';
+import { generateIdentity, importPublicKey, verify } from './identity';
+import { packSigned, signedMessageOf, unpackSigned } from './pack';
 import type { Entry, Stop } from './types';
 
 const entry: Entry<Stop> = {
@@ -9,29 +10,39 @@ const entry: Entry<Stop> = {
   payload: Uint8Array.of(9, 8, 7),
 };
 
-describe('packEntry / unpackEntry', () => {
-  it('round-trips metadata and payload', async () => {
-    expect(unpackEntry(await packEntry(entry))).toEqual(entry);
+describe('packSigned / unpackSigned', () => {
+  it('round-trips metadata and payload with a signature over both', async () => {
+    const identity = await generateIdentity();
+    const unpacked = unpackSigned(await packSigned(entry, identity.privateKey))!;
+    const key = (await importPublicKey(identity.publicKey))!;
+
+    expect(unpacked.meta).toEqual(entry.meta);
+    expect(unpacked.payload).toEqual(entry.payload);
+    expect(unpacked.signedMessage).toEqual(await signedMessageOf(entry));
+    expect(await verify(key, unpacked.signature, unpacked.signedMessage)).toBe(true);
   });
 
-  it('supports an empty payload', async () => {
-    const empty = { ...entry, payload: new Uint8Array(0) };
-    expect(unpackEntry(await packEntry(empty))).toEqual(empty);
+  it('frames metadata so payload bytes can never be read as metadata', async () => {
+    const a = await signedMessageOf({ ...entry, payload: utf8('}') });
+    const b = await signedMessageOf({ ...entry, payload: utf8('') });
+    expect(a).not.toEqual(b);
   });
 
-  it('rejects data shorter than the header', () => {
-    expect(unpackEntry(Uint8Array.of(0, 0))).toBeNull();
+  it('rejects data shorter than signature + header', () => {
+    expect(unpackSigned(new Uint8Array(67))).toBeNull();
   });
 
-  it('rejects a header that points past the end', () => {
-    expect(unpackEntry(Uint8Array.of(0, 0, 0, 50, 1, 2))).toBeNull();
+  it('rejects a length that points past the end', async () => {
+    const bytes = await concatBytes([new Uint8Array(64), Uint8Array.of(0, 0, 0, 50, 1, 2)]);
+    expect(unpackSigned(bytes)).toBeNull();
   });
 
   it('rejects metadata that is not valid JSON or not a known entry', async () => {
-    const invalidJson = await concatBytes([Uint8Array.of(0, 0, 0, 2), utf8('{x')]);
-    const unknown = utf8('{"kind":"nope"}');
-    const unknownKind = await concatBytes([Uint8Array.of(0, 0, 0, unknown.length), unknown]);
-    expect(unpackEntry(invalidJson)).toBeNull();
-    expect(unpackEntry(unknownKind)).toBeNull();
+    const withMeta = (json: string) => {
+      const meta = utf8(json);
+      return concatBytes([new Uint8Array(64), Uint8Array.of(0, 0, 0, meta.length), meta]);
+    };
+    expect(unpackSigned(await withMeta('{x'))).toBeNull();
+    expect(unpackSigned(await withMeta('{"kind":"nope"}'))).toBeNull();
   });
 });

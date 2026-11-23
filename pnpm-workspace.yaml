@@ -1,0 +1,21 @@
+# Single-package repo: this file only carries pnpm settings.
+# Supply-chain hardening, explained in SECURITY.md ("Dependencies").
+
+# Never install a version published less than 3 days ago. Most malicious
+# releases are caught and pulled within hours.
+minimumReleaseAge: 4320
+
+# pnpm 10 does not run dependency install scripts by default. These are the
+# only packages allowed to, because they ship native binaries.
+onlyBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - esbuild
+
+# Fail instead of silently skipping a build script nobody approved.
+strictDepBuilds: true
+
+# Refuse to install on an unsupported Node/pnpm.
+engineStrict: true
+
+# Packages must declare what they use: no phantom dependencies.
+hoist: false

@@ -1,4 +1,11 @@
 dist
 coverage
 out
-package-lock.json
+pnpm-lock.yaml
+
+# Vendored Untitled UI, kept byte-identical to upstream (THIRD_PARTY_NOTICES.md).
+src/components/base
+src/components/application
+src/components/foundations
+src/utils
+src/styles/theme.css

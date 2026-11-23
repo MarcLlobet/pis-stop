@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { fakeToUrl } from '../test/fixtures';
+import { fakeToUrl, jpeg } from '../test/fixtures';
 import { avatarSvg, createDemoRepository, demoEntries, tileSvg } from './demo';
-import { utf8 } from './encoding';
+import { generateIdentity } from './identity';
 
 const repository = createDemoRepository({
   toUrl: fakeToUrl,
@@ -36,23 +36,27 @@ describe('demo data', () => {
 
 describe('createDemoRepository', () => {
   it('returns published profiles and photos without persisting them', async () => {
-    const profile = await repository.publishProfile({
-      id: 'me',
-      name: 'Jo',
-      email: '',
-      avatar: null,
-    });
-    const photo = await repository.publishPhoto({
-      authorId: 'me',
+    const me = await generateIdentity();
+    const profile = await repository.publishProfile(me, { name: 'Jo', email: '', avatar: null });
+    const photo = await repository.publishPhoto(me, {
       stopId: null,
       position: null,
-      full: { bytes: utf8('FULL'), type: 'image/jpeg', width: 1, height: 1 },
-      thumb: { bytes: utf8('T'), type: 'image/jpeg', width: 1, height: 1 },
+      full: { bytes: jpeg(1), type: 'image/jpeg', width: 1, height: 1 },
+      thumb: { bytes: jpeg(), type: 'image/jpeg', width: 1, height: 1 },
     });
 
-    expect(profile).toMatchObject({ id: 'me', avatarUrl: null });
-    expect(photo).toMatchObject({ id: 'new-photo', fullUrl: 'fake:image/jpeg:4' });
-    expect(await repository.openPhoto(photo)).toBe('fake:image/jpeg:4');
-    expect((await repository.load()).profiles.has('me')).toBe(false);
+    expect(profile).toMatchObject({ id: me.id, avatarUrl: null });
+    expect(photo).toMatchObject({ id: 'new-photo', authorId: me.id, fullUrl: 'fake:image/jpeg:5' });
+    expect(await repository.openPhoto(photo)).toBe('fake:image/jpeg:5');
+    expect((await repository.load()).profiles.has(me.id)).toBe(false);
+  });
+
+  it('serves its SVG pictures as data: URLs, never as same-origin blobs', async () => {
+    const snapshot = await repository.load();
+    const urls = [
+      ...snapshot.photos.map(({ thumbUrl }) => thumbUrl),
+      ...[...snapshot.profiles.values()].map(({ avatarUrl }) => avatarUrl ?? ''),
+    ];
+    expect(urls.every((url) => url.startsWith('data:image/svg+xml'))).toBe(true);
   });
 });

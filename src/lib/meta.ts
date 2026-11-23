@@ -9,6 +9,28 @@ const isString = (value: unknown): value is string => typeof value === 'string';
 
 const isNonEmptyString = (value: unknown): value is string => isString(value) && value.length > 0;
 
+/** Bounded text: decrypted data is still untrusted, so nothing is unbounded. */
+const isText =
+  (max: number) =>
+  (value: unknown): value is string =>
+    isNonEmptyString(value) && value.length <= max;
+
+const isName = isText(80);
+const isId = (value: unknown): value is string =>
+  isString(value) && /^[A-Za-z0-9_-]{1,64}$/.test(value);
+const isBase64Url = (value: unknown): value is string =>
+  isString(value) && /^[A-Za-z0-9_-]{1,200}$/.test(value);
+const isSha256Hex = (value: unknown): value is string =>
+  isString(value) && /^[0-9a-f]{64}$/.test(value);
+/**
+ * Only JPEG is accepted from the network. SVG can carry scripts: an SVG made
+ * into a blob: URL from this origin and opened in a tab would run with access
+ * to the keys. (The demo uses SVG, but its data never passes through here.)
+ */
+const isImageType = (value: unknown): value is 'image/jpeg' => value === 'image/jpeg';
+const isIsoDate = (value: unknown): value is string =>
+  isText(40)(value) && !Number.isNaN(Date.parse(value));
+
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
@@ -19,29 +41,33 @@ export const isLatLng = (value: unknown): value is LatLng =>
   Math.abs(value['lat']) <= 90 &&
   Math.abs(value['lng']) <= 180;
 
-const isEventInfo = (value: Fields): value is EventInfo & Fields => isNonEmptyString(value['name']);
+const isEventInfo = (value: Fields): value is EventInfo & Fields =>
+  isName(value['name']) && isBase64Url(value['organizerKey']);
 
 const isStop = (value: Fields): value is Stop & Fields =>
-  isNonEmptyString(value['id']) &&
-  isNonEmptyString(value['name']) &&
+  isId(value['id']) &&
+  isName(value['name']) &&
   isFiniteNumber(value['order']) &&
   isLatLng(value['position']);
 
 const isProfile = (value: Fields): value is Profile & Fields =>
-  isNonEmptyString(value['id']) &&
-  isNonEmptyString(value['name']) &&
+  isId(value['id']) &&
+  isBase64Url(value['publicKey']) &&
+  isName(value['name']) &&
   isString(value['email']) &&
-  isNonEmptyString(value['imageType']) &&
-  isNonEmptyString(value['createdAt']);
+  value['email'].length <= 254 &&
+  isImageType(value['imageType']) &&
+  isIsoDate(value['createdAt']);
 
 const isPhoto = (value: Fields): value is Photo & Fields =>
-  isNonEmptyString(value['id']) &&
-  isNonEmptyString(value['authorId']) &&
-  (value['stopId'] === null || isNonEmptyString(value['stopId'])) &&
+  isId(value['id']) &&
+  isId(value['authorId']) &&
+  (value['stopId'] === null || isId(value['stopId'])) &&
   (value['position'] === null || isLatLng(value['position'])) &&
-  isNonEmptyString(value['takenAt']) &&
-  isNonEmptyString(value['fullUrl']) &&
-  isNonEmptyString(value['imageType']) &&
+  isIsoDate(value['takenAt']) &&
+  isText(500)(value['fullUrl']) &&
+  isSha256Hex(value['fullSha256']) &&
+  isImageType(value['imageType']) &&
   isFiniteNumber(value['width']) &&
   isFiniteNumber(value['height']);
 
@@ -55,7 +81,9 @@ export const parseMeta = (value: unknown): Meta | null => {
   }
   switch (value['kind']) {
     case 'event':
-      return isEventInfo(value) ? { kind: 'event', name: value.name } : null;
+      return isEventInfo(value)
+        ? { kind: 'event', name: value.name, organizerKey: value.organizerKey }
+        : null;
     case 'stop':
       return isStop(value)
         ? {
@@ -71,6 +99,7 @@ export const parseMeta = (value: unknown): Meta | null => {
         ? {
             kind: 'profile',
             id: value.id,
+            publicKey: value.publicKey,
             name: value.name,
             email: value.email,
             imageType: value.imageType,
@@ -87,6 +116,7 @@ export const parseMeta = (value: unknown): Meta | null => {
             position: value.position && { lat: value.position.lat, lng: value.position.lng },
             takenAt: value.takenAt,
             fullUrl: value.fullUrl,
+            fullSha256: value.fullSha256,
             imageType: value.imageType,
             width: value.width,
             height: value.height,
