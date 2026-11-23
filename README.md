@@ -77,6 +77,12 @@ existeixi, `pnpm dev` fa servir les tessel·les d’OpenStreetMap.
 
 Amb una clau de Google (Routes API activada) a `GOOGLE_MAPS_API_KEY` del `.env`:
 
+1. [Activa la Routes API](https://console.cloud.google.com/apis/library/routes.googleapis.com)
+   (et demanarà un projecte i un compte de facturació).
+2. [Crea una clau](https://console.cloud.google.com/apis/credentials) a _Create credentials → API
+   key_ i, a _API restrictions_, limita-la a **Routes API**.
+3. Afegeix-la al `.env` i executa:
+
 ```sh
 pnpm event:route event.json --departure 2026-12-12T18:00
 ```
