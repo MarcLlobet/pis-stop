@@ -61,6 +61,7 @@ sealed = version (1 byte = 0x01) ‖ iv (12 bytes) ‖ AES-GCM(aes, iv, framed, 
 framed = len(data) (4 bytes) ‖ data ‖ zero bytes up to padme(4 + len(data))
 aad    = "pis-stop/v1/entry"              for entries
        | "pis-stop/v1/photo/" ‖ photoId    for full-size photos
+       | "pis-stop/v1/location"            for live-location pings (§8)
 ```
 
 `padme(L)`: for `L < 2` return `L`; else `E = ⌊log2 L⌋`, `S = ⌊log2 E⌋ + 1`, `mask = 2^(E−S) − 1`,
@@ -81,12 +82,12 @@ signature = ECDSA-P256-SHA256(signer, "pis-stop/v1/signature\0" ‖ message)
 
 Entries are uploaded with the tag. `meta` is one of:
 
-| `kind`    | Fields                                                                                                                     | Payload              | Signed by                     |
-| --------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------- | ----------------------------- |
-| `event`   | `name`, `organizerKey` (b64url raw P-256), `legs` (§5.1)                                                                   | empty                | organizer key                 |
-| `stop`    | `id`, `name`, `order`, `position {lat,lng}`                                                                                | empty                | organizer key                 |
-| `profile` | `id`, `publicKey`, `name`, `email`, `imageType`, `createdAt`                                                               | JPEG avatar or empty | the profile's own `publicKey` |
-| `photo`   | `id`, `authorId`, `stopId \| null`, `position \| null`, `takenAt`, `fullUrl`, `fullSha256`, `imageType`, `width`, `height` | JPEG thumbnail       | the author's profile key      |
+| `kind`    | Fields                                                                                                   | Payload              | Signed by                     |
+| --------- | -------------------------------------------------------------------------------------------------------- | -------------------- | ----------------------------- |
+| `event`   | `name`, `organizerKey` (b64url raw P-256), `legs` (§5.1)                                                 | empty                | organizer key                 |
+| `stop`    | `id`, `name`, `order`, `position {lat,lng}`                                                              | empty                | organizer key                 |
+| `profile` | `id`, `publicKey`, `name`, `email`, `imageType`, `createdAt`                                             | JPEG avatar or empty | the profile's own `publicKey` |
+| `photo`   | `id`, `authorId`, `position \| null`, `takenAt`, `fullUrl`, `fullSha256`, `imageType`, `width`, `height` | JPEG thumbnail       | the author's profile key      |
 
 ### 5.1 Itinerary
 
@@ -165,7 +166,25 @@ it carries `fullUrl` and `fullSha256 = hex(SHA-256(plaintext JPEG))`, both cover
 signature. Opening a photo checks, in order: URL allowlist, size ≤ 12 MiB, decryption with the
 photo-specific AAD, JPEG magic number, SHA-256 equality.
 
-## 8. Limits
+## 8. Live location (optional)
+
+Only sent if the build has an Ably key and a participant turns sharing on; never stored anywhere,
+never sent to Cloudinary, and not part of the permanent record above.
+
+```
+ping      = signature (64 bytes) ‖ message
+message   = lat (8 bytes, f64 BE) ‖ lng (8 bytes, f64 BE) ‖ at (8 bytes, f64 BE ms epoch) ‖ authorId
+signature = ECDSA-P256-SHA256(signer, "pis-stop/v1/signature\0" ‖ message)
+sealed    = sealed blob (§4), purpose `location`, data = ping
+```
+
+`authorId` must be a verified profile's `id`, and the signature must verify under that profile's
+`publicKey` — the same trust rule as a photo. Ably only ever carries the sealed blob, as a
+base64url string, on channel `location:<tag>`: it has no key, so it sees opaque bytes, never a
+real position. A ping is kept in memory only, for the current session: faded after 90 seconds
+without a fresh one from the same author, dropped after 5 minutes.
+
+## 9. Limits
 
 | What                  | Limit                      |
 | --------------------- | -------------------------- |
@@ -177,7 +196,7 @@ photo-specific AAD, JPEG magic number, SHA-256 equality.
 
 Images are re-encoded through a canvas before upload, which drops all EXIF metadata.
 
-## 9. Test vectors
+## 10. Test vectors
 
 Inputs: `secret = 00 01 02 … 1f`, `iv = a0 a1 … ab`, plaintext `"Pis Stop"`.
 
@@ -186,6 +205,7 @@ Inputs: `secret = 00 01 02 … 1f`, `iv = a0 a1 … ab`, plaintext `"Pis Stop"`.
 | `tag`                                                            | `ps_496af9b1b7b58aba5b645f6be86dc144ab5c631f1517f11fb2bb5f5daf7c80d8`                |
 | sealed, purpose `entry`                                          | `01a0a1a2a3a4a5a6a7a8a9aaabb6b9b2a0122b9ee1c1a55009479cb21eb4910fe328aca22175c31538` |
 | sealed, `photo/p1`                                               | `01a0a1a2a3a4a5a6a7a8a9aaabb6b9b2a0122b9ee1c1a550091526130e82cf19059e3292bf2aec4d1f` |
+| sealed, `location`                                               | `01a0a1a2a3a4a5a6a7a8a9aaabb6b9b2a0122b9ee1c1a550094d872d9eb785078d21b9699a37fc1e43` |
 | `fingerprint(04 01 … 40)`                                        | `DtOmq5V_9vWaljCkc9MafQ`                                                             |
 | `padme` of 0, 1, 4, 9, 12, 100, 1000, 1023, 1025, 65537, 1000000 | 0, 1, 4, 10, 12, 104, 1024, 1024, 1088, 67584, 1015808                               |
 

@@ -15,7 +15,9 @@ export const CONTENT_SECURITY_POLICY = [
   "style-src 'self'",
   // The map is self-hosted (public/map/area.pmtiles): no third-party tiles.
   "img-src 'self' blob: data:",
-  "connect-src 'self' https://api.cloudinary.com https://res.cloudinary.com",
+  // Ably (live location, opt-in): its own host plus every *.ably-realtime.com
+  // fallback/connectivity-check host it may use (see faqs.ably.com).
+  "connect-src 'self' https://api.cloudinary.com https://res.cloudinary.com wss://main.realtime.ably.net https://main.realtime.ably.net wss://realtime.ably.io https://rest.ably.io wss://*.ably-realtime.com https://*.ably-realtime.com",
   "font-src 'self'",
   "manifest-src 'self'",
   "base-uri 'none'",

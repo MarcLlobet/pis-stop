@@ -12,6 +12,8 @@ import {
   useMapEvent,
 } from 'react-leaflet';
 
+import type { PeerPosition } from '../hooks/use-live-location';
+import { useOwnPosition } from '../hooks/use-own-position';
 import { clusterPoints } from '../lib/cluster';
 import { initialOf } from '../lib/format';
 import { centroid } from '../lib/geo';
@@ -27,6 +29,8 @@ interface MapViewProps {
   readonly onOpenGroup: (photos: readonly PhotoView[]) => void;
   /** Which option is shown for each leg (by leg index); the first by default. */
   readonly choices: ReadonlyMap<number, number>;
+  /** Other people currently sharing their live position, keyed by author id. */
+  readonly peers: ReadonlyMap<string, PeerPosition>;
 }
 
 const BARCELONA: LatLngExpression = [41.3874, 2.1686];
@@ -130,6 +134,28 @@ const peopleIcon = (profiles: readonly (ProfileView | undefined)[]) => {
   });
 };
 
+/** Someone sharing their live position: their avatar, faded once it goes stale. */
+const peerIcon = (profile: ProfileView | undefined, stale: boolean) =>
+  divIcon({
+    className: '',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    html: element(
+      'span',
+      { class: stale ? 'pin-peer is-stale' : 'pin-peer' },
+      element('span', { class: 'pin-face' }, avatarContent(profile)),
+    ),
+  });
+
+/** This device's own position: a plain "you are here" dot, never shared with anyone. */
+const ownPositionIcon = () =>
+  divIcon({
+    className: '',
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    html: element('span', { class: 'pin-you', 'aria-hidden': 'true' }),
+  });
+
 const PLAIN_ROUTE: LegStyle = { color: ROUTE_COLOR, dashArray: '6 10', weight: 4 };
 
 interface RouteLine {
@@ -200,6 +226,10 @@ interface PhotoPinsProps {
 
 /** Always above the stops and the route, whatever their own screen position. */
 const PHOTO_Z_OFFSET = 10_000;
+/** Above the photo pins: a live person, not a thing that happened earlier. */
+const PEER_Z_OFFSET = PHOTO_Z_OFFSET + 500;
+/** Above even the peers: it's you, always findable. */
+const OWN_POSITION_Z_OFFSET = PHOTO_Z_OFFSET + 1000;
 
 /**
  * Photo pins, grouped by distance on screen: one person's avatar, or several
@@ -257,8 +287,26 @@ const PhotoPins = ({ photos, profiles, onOpenPhoto, onOpenGroup }: PhotoPinsProp
   });
 };
 
-export const MapView = ({ snapshot, onOpenPhoto, onOpenGroup, choices }: MapViewProps) => {
+interface PeerPinsProps {
+  readonly peers: ReadonlyMap<string, PeerPosition>;
+  readonly profiles: ReadonlyMap<string, ProfileView>;
+}
+
+/** Everyone currently sharing their position, as their own avatar pin. */
+const PeerPins = ({ peers, profiles }: PeerPinsProps) =>
+  [...peers].map(([authorId, peer]) => (
+    <Marker
+      key={authorId}
+      position={toTuple(peer.position)}
+      icon={peerIcon(profiles.get(authorId), peer.stale)}
+      zIndexOffset={PEER_Z_OFFSET}
+      interactive={false}
+    />
+  ));
+
+export const MapView = ({ snapshot, onOpenPhoto, onOpenGroup, choices, peers }: MapViewProps) => {
   const dark = usePrefersDark();
+  const ownPosition = useOwnPosition();
   const placed = useMemo(() => placedPhotos(snapshot.photos), [snapshot.photos]);
   const route = snapshot.stops.map(({ position }) => toTuple(position));
   const points = [...route, ...placed.map(({ position }) => toTuple(position))];
@@ -317,6 +365,15 @@ export const MapView = ({ snapshot, onOpenPhoto, onOpenGroup, choices }: MapView
         onOpenPhoto={onOpenPhoto}
         onOpenGroup={onOpenGroup}
       />
+      <PeerPins peers={peers} profiles={snapshot.profiles} />
+      {ownPosition !== null && (
+        <Marker
+          position={toTuple(ownPosition)}
+          icon={ownPositionIcon()}
+          zIndexOffset={OWN_POSITION_Z_OFFSET}
+          interactive={false}
+        />
+      )}
     </MapContainer>
   );
 };

@@ -34,6 +34,7 @@
   },
   "dependencies": {
     "@untitledui/icons": "^0.0.23",
+    "ably": "^2.30.0",
     "leaflet": "^1.9.4",
     "protomaps-leaflet": "^5.1.0",
     "react": "^19.2.0",

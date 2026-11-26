@@ -40,6 +40,8 @@ jobs:
           # design. Leave them unset and the site ships in demo-only mode.
           VITE_CLOUDINARY_CLOUD_NAME: ${{ vars.CLOUDINARY_CLOUD_NAME }}
           VITE_CLOUDINARY_UPLOAD_PRESET: ${{ vars.CLOUDINARY_UPLOAD_PRESET }}
+          # Optional: leave unset and live location sharing stays hidden.
+          VITE_ABLY_KEY: ${{ vars.ABLY_KEY }}
       - name: Hash every published file
         id: manifest
         run: |

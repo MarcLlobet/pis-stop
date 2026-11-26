@@ -1,4 +1,12 @@
-import { Grid01, LogOut01, Map01, RefreshCcw02, ShieldTick } from '@untitledui/icons';
+import {
+  Grid01,
+  LogOut01,
+  Map01,
+  NavigationPointer01,
+  NavigationPointerOff01,
+  RefreshCcw02,
+  ShieldTick,
+} from '@untitledui/icons';
 import { useState } from 'react';
 import { Heading as AriaHeading } from 'react-aria-components';
 
@@ -7,6 +15,7 @@ import { Tab, TabList, TabPanel, Tabs } from '@/components/application/tabs/tabs
 import { Avatar } from '@/components/base/avatar/avatar';
 import { Button } from '@/components/base/buttons/button';
 
+import type { LiveLocationState } from '../hooks/use-live-location';
 import { useUpload } from '../hooks/use-upload';
 import { initialOf } from '../lib/format';
 import type { Identity } from '../lib/identity';
@@ -28,6 +37,7 @@ interface EventScreenProps {
   readonly onPhoto: (photo: PhotoView) => void;
   readonly onReload: () => void;
   readonly onLeave: () => void;
+  readonly live: LiveLocationState;
 }
 
 type View = 'map' | 'gallery';
@@ -40,6 +50,7 @@ export const EventScreen = ({
   onPhoto,
   onReload,
   onLeave,
+  live,
 }: EventScreenProps) => {
   const [view, setView] = useState<View>('map');
   const [opened, setOpened] = useState<PhotoView | null>(null);
@@ -71,6 +82,18 @@ export const EventScreen = ({
             badge={snapshot.photos.length}
           />
         </TabList>
+        {live.available && (
+          <Button
+            color={live.sharing ? 'primary' : 'tertiary'}
+            size="sm"
+            iconLeading={live.sharing ? NavigationPointer01 : NavigationPointerOff01}
+            aria-label="Comparteix la meva ubicació"
+            aria-pressed={live.sharing}
+            onPress={() => {
+              live.setSharing(!live.sharing);
+            }}
+          />
+        )}
         <Button
           color="tertiary"
           size="sm"
@@ -106,6 +129,7 @@ export const EventScreen = ({
           onOpenPhoto={setOpened}
           onOpenGroup={setGroup}
           choices={choices}
+          peers={live.peers}
         />
         <ItineraryPanel
           stops={snapshot.stops}

@@ -49,21 +49,33 @@ flowchart LR
 3. **Settings → Security → Restricted media types**: desmarca **Resource list**, perquè l’app
    pugui llistar les entrades per tag.
 
-### 2. Configuració
+### 2. Ubicació en viu (opcional)
+
+Perquè la colla es pugui veure al mapa mentre dura l’event, amb un compte gratuït d’
+[Ably](https://ably.com/) (pensat per a això: cap servidor propi, cap targeta):
+
+1. Crea un compte i una app a Ably.
+2. **API Keys → Settings** de la clau, i restringeix-la: patró de recurs **`location:*`**,
+   capacitats **publish**, **subscribe** i **presence** (res més).
+3. Aquesta clau xifrada i signada igual que les fotos: Ably només hi veu soroll. Si no la poses,
+   el botó de compartir ubicació simplement no surt.
+
+### 3. Configuració
 
 ```sh
 cp .env.example .env
 # VITE_CLOUDINARY_CLOUD_NAME=<el teu cloud name>
 # VITE_CLOUDINARY_UPLOAD_PRESET=<el preset unsigned>
+# VITE_ABLY_KEY=<la clau restringida, opcional>
 # APP_URL=https://<usuari>.github.io/pis-stop/
 ```
 
 Aquests valors **no són secrets**. A GitHub, posa’ls com a _repository variables_
-(`Settings → Secrets and variables → Actions → Variables`) amb els noms `CLOUDINARY_CLOUD_NAME` i
-`CLOUDINARY_UPLOAD_PRESET`. Sense aquestes variables, el deploy surt en mode només-demo. A
-`Settings → Pages`, tria **GitHub Actions** com a font.
+(`Settings → Secrets and variables → Actions → Variables`) amb els noms `CLOUDINARY_CLOUD_NAME`,
+`CLOUDINARY_UPLOAD_PRESET` i, si vols ubicació en viu, `ABLY_KEY`. Sense les dues primeres, el
+deploy surt en mode només-demo. A `Settings → Pages`, tria **GitHub Actions** com a font.
 
-### 3. Generar el mapa
+### 4. Generar el mapa
 
 El mapa no ve de cap servidor extern: és un extracte de la zona de l’event que es publica amb la
 web. A GitHub, **Actions → Update map → Run workflow** (per defecte, Barcelona; pots posar una
@@ -73,7 +85,7 @@ torna a desplegar sol.
 En local també es pot fer amb `pnpm map:extract` (cal `pmtiles` o Go instal·lat). Mentre no
 existeixi, `pnpm dev` fa servir les tessel·les d’OpenStreetMap.
 
-### 4. Itinerari amb el metro real (opcional)
+### 5. Itinerari amb el metro real (opcional)
 
 Escriu a `event.json` com vas d’un pis a l’altre (línies i estacions, a peu, en bici) i executa:
 
@@ -95,7 +107,7 @@ clau de la Routes API a `GOOGLE_MAPS_API_KEY`:
 
 Només s’executa al teu ordinador: la web no contacta mai cap d’aquests serveis.
 
-### 5. Crear l’event
+### 6. Crear l’event
 
 ```sh
 cp event.example.json event.json   # event.json està al .gitignore
@@ -105,7 +117,7 @@ pnpm event:create event.json
 Surten l’enllaç d’invitació, el QR i `out/<event>.keys.json`. Guarda aquest últim fora de línia.
 Per afegir pisos més tard: `pnpm event:create mes-pisos.json --keys out/<event>.keys.json`.
 
-### 6. Tancar l’event
+### 7. Tancar l’event
 
 Esborra l’upload preset a Cloudinary. Les fotos es continuen veient, però ja no se’n poden
 penjar més.
@@ -127,6 +139,7 @@ pnpm build
 | [Untitled UI](https://www.untitledui.com/react) + React Aria | Components accessibles i icones `@untitledui/icons`                                   |
 | Tailwind CSS 4                                               | El sistema de tokens d’Untitled UI, amb el color de marca de Pis Stop                 |
 | Leaflet + Protomaps                                          | Mapa vectorial allotjat a la mateixa web: cap servidor de mapes extern                |
+| Ably (opcional)                                              | Ubicació en viu, només bytes xifrats i signats: carregat sota demanda                 |
 | WebCrypto                                                    | HKDF, AES-GCM, ECDSA i SHA-256 natius: cap criptografia feta a mà                     |
 | Vitest + Testing Library                                     | Proves de la lògica (95% de cobertura mínima a `src/lib`) i dels components           |
 | ESLint strict type-checked                                   | `typescript-eslint`, `functional`, `jsx-a11y`, i res d’`innerHTML`                    |

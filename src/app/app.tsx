@@ -4,17 +4,22 @@ import { LoadingIndicator } from '@/components/application/loading-indicator/loa
 
 import { type SessionState, useSession } from '../hooks/use-session';
 import type { CloudinaryConfig } from '../lib/cloudinary';
-import { parseCloudinaryConfig } from '../lib/config';
+import { type AblyConfig, parseAblyConfig, parseCloudinaryConfig } from '../lib/config';
 import { browserKeyStore, clearLocationHash, readLocationHash } from '../platform/browser';
 import { EventApp, type EventSource } from './event-app';
 import { Landing } from './landing';
 
 const cloudinary = parseCloudinaryConfig(import.meta.env);
+const ably = parseAblyConfig(import.meta.env);
 
 const NO_ACCOUNT =
   'Aquest enllaç és d’un correpisos, però aquesta web no té cap compte de fotos configurat.';
 
-const toSource = (session: SessionState, config: CloudinaryConfig | null): EventSource | null => {
+const toSource = (
+  session: SessionState,
+  config: CloudinaryConfig | null,
+  ablyConfig: AblyConfig | null,
+): EventSource | null => {
   switch (session.kind) {
     case 'resolving':
     case 'landing':
@@ -22,7 +27,9 @@ const toSource = (session: SessionState, config: CloudinaryConfig | null): Event
     case 'demo':
       return { kind: 'demo' };
     case 'event':
-      return config === null ? null : { kind: 'event', keys: session.keys, cloudinary: config };
+      return config === null
+        ? null
+        : { kind: 'event', keys: session.keys, cloudinary: config, ably: ablyConfig };
   }
 };
 
@@ -34,7 +41,7 @@ export const App = () => {
     // `pnpm dev` opens the demo directly. Invites (#k=…) still work as usual.
     import.meta.env.DEV ? 'demo' : 'landing',
   );
-  const source = useMemo(() => toSource(session, cloudinary), [session]);
+  const source = useMemo(() => toSource(session, cloudinary, ably), [session]);
 
   if (session.kind === 'resolving') {
     return (

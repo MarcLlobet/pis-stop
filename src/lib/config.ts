@@ -13,3 +13,17 @@ export const parseCloudinaryConfig = (env: Env): CloudinaryConfig | null => {
   const uploadPreset = read(env, 'VITE_CLOUDINARY_UPLOAD_PRESET');
   return cloudName && uploadPreset ? { cloudName, uploadPreset } : null;
 };
+
+export interface AblyConfig {
+  readonly key: string;
+}
+
+/** `<appId>.<keyId>:<keySecret>`, the shape of every Ably API key (ably/api-key-regex). */
+const ABLY_KEY = /^[\w-]{6}\.[\w-]{6}:(?:[\w-]{16}|[\w-]{43})$/;
+
+/** `null` means no (or no restricted-capability) Ably key: live location stays hidden. */
+export const parseAblyConfig = (env: Env): AblyConfig | null => {
+  const value = env['VITE_ABLY_KEY'];
+  const key = typeof value === 'string' ? value.trim() : '';
+  return ABLY_KEY.test(key) ? { key } : null;
+};

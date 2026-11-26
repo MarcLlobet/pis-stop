@@ -5,6 +5,7 @@ import {
   deriveEventKeys,
   ENTRY,
   generateSecret,
+  LOCATION,
   open,
   seal,
   sealWithIv,
@@ -37,6 +38,9 @@ describe('known-answer vectors', () => {
     expect(
       toHex(await sealWithIv(aes, utf8('Pis Stop'), { kind: 'photo', photoId: 'p1' }, iv)),
     ).toBe('01a0a1a2a3a4a5a6a7a8a9aaabb6b9b2a0122b9ee1c1a550091526130e82cf19059e3292bf2aec4d1f');
+    expect(toHex(await sealWithIv(aes, utf8('Pis Stop'), LOCATION, iv))).toBe(
+      '01a0a1a2a3a4a5a6a7a8a9aaabb6b9b2a0122b9ee1c1a550094d872d9eb785078d21b9699a37fc1e43',
+    );
   });
 });
 
@@ -112,6 +116,7 @@ describe('helpers', () => {
   it('describes each purpose with a distinct associated-data string', () => {
     expect(fromUtf8(associatedData(ENTRY))).toBe('pis-stop/v1/entry');
     expect(fromUtf8(associatedData({ kind: 'photo', photoId: 'p1' }))).toBe('pis-stop/v1/photo/p1');
+    expect(fromUtf8(associatedData(LOCATION))).toBe('pis-stop/v1/location');
   });
 
   it('hashes with SHA-256', async () => {

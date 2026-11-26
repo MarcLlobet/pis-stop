@@ -7,8 +7,10 @@ import { FeaturedIcon } from '@/components/foundations/featured-icon/featured-ic
 
 import { useEvent } from '../hooks/use-event';
 import { useIdentity } from '../hooks/use-identity';
+import { useLiveLocation } from '../hooks/use-live-location';
 import { useLocalEvent } from '../hooks/use-local-event';
 import { type CloudinaryConfig, createCloudinaryClient } from '../lib/cloudinary';
+import type { AblyConfig } from '../lib/config';
 import type { EventKeys } from '../lib/crypto';
 import { createDemoRepository } from '../lib/demo';
 import { AVATAR_MAX_SIDE } from '../lib/image';
@@ -24,6 +26,8 @@ export type EventSource =
       readonly kind: 'event';
       readonly keys: EventKeys;
       readonly cloudinary: CloudinaryConfig;
+      /** `null` without an Ably account: live location sharing stays hidden. */
+      readonly ably: AblyConfig | null;
     };
 
 interface EventAppProps {
@@ -71,6 +75,16 @@ export const EventApp = ({ source, onLeave }: EventAppProps) => {
   }, [source, autoProfile, devIdentity, localEvent]);
   const { state, reload, addPhoto, addProfile } = useEvent(repository);
 
+  // Hooks run unconditionally, before the loading/error returns below, so
+  // live location updates as soon as the profile list and identity are ready.
+  const mine = identity.state.status === 'ready' ? identity.state.identity : null;
+  const live = useLiveLocation({
+    config: source.kind === 'event' ? source.ably : null,
+    keys: source.kind === 'event' ? source.keys : null,
+    identity: mine,
+    profiles: state.status === 'ready' ? state.snapshot.profiles : null,
+  });
+
   if (repository === null || state.status === 'loading' || identity.state.status === 'loading') {
     return (
       <Centered>
@@ -96,7 +110,6 @@ export const EventApp = ({ source, onLeave }: EventAppProps) => {
     );
   }
 
-  const mine = identity.state.identity;
   const me = mine === null ? undefined : state.snapshot.profiles.get(mine.id);
 
   const createProfile = async ({ name, email, avatar }: OnboardingValues) => {
@@ -116,6 +129,7 @@ export const EventApp = ({ source, onLeave }: EventAppProps) => {
       onPhoto={addPhoto}
       onReload={reload}
       onLeave={onLeave}
+      live={live}
     />
   );
 };

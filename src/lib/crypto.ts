@@ -21,14 +21,26 @@ export interface EventKeys {
  * made for one purpose can never be accepted as another (domain separation).
  */
 export type Purpose =
-  { readonly kind: 'entry' } | { readonly kind: 'photo'; readonly photoId: string };
+  | { readonly kind: 'entry' }
+  | { readonly kind: 'photo'; readonly photoId: string }
+  | { readonly kind: 'location' };
 
 export const ENTRY: Purpose = { kind: 'entry' };
+export const LOCATION: Purpose = { kind: 'location' };
+
+const purposePath = (purpose: Purpose): string => {
+  switch (purpose.kind) {
+    case 'entry':
+      return 'entry';
+    case 'location':
+      return 'location';
+    case 'photo':
+      return `photo/${purpose.photoId}`;
+  }
+};
 
 export const associatedData = (purpose: Purpose): Bytes =>
-  utf8(
-    `pis-stop/v${FORMAT_VERSION}/${purpose.kind === 'entry' ? 'entry' : `photo/${purpose.photoId}`}`,
-  );
+  utf8(`pis-stop/v${FORMAT_VERSION}/${purposePath(purpose)}`);
 
 export const generateSecret = (): Bytes => crypto.getRandomValues(new Uint8Array(SECRET_BYTES));
 

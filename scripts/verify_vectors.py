@@ -25,6 +25,9 @@ EXPECTED_ENTRY = (
 EXPECTED_PHOTO = (
     "01a0a1a2a3a4a5a6a7a8a9aaabb6b9b2a0122b9ee1c1a550091526130e82cf19059e3292bf2aec4d1f"
 )
+EXPECTED_LOCATION = (
+    "01a0a1a2a3a4a5a6a7a8a9aaabb6b9b2a0122b9ee1c1a550094d872d9eb785078d21b9699a37fc1e43"
+)
 EXPECTED_FINGERPRINT = "DtOmq5V_9vWaljCkc9MafQ"
 
 
@@ -61,6 +64,7 @@ results = [
     check("tag", "ps_" + hkdf(b"cloudinary-tag").hex(), EXPECTED_TAG),
     check("sealed entry", seal(b"Pis Stop", b"pis-stop/v1/entry"), EXPECTED_ENTRY),
     check("sealed photo", seal(b"Pis Stop", b"pis-stop/v1/photo/p1"), EXPECTED_PHOTO),
+    check("sealed location", seal(b"Pis Stop", b"pis-stop/v1/location"), EXPECTED_LOCATION),
     check(
         "fingerprint",
         base64.urlsafe_b64encode(
