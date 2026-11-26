@@ -19,6 +19,8 @@ confiar en ningú. L’especificació tècnica exacta és a [docs/PROTOCOL.md](d
   mostra.
 - **No hi ha backend propi**: no hi ha cap base de dades ni servidor nostre que es pugui atacar o
   que pugui guardar registres.
+- **La ubicació en viu és opcional i es xifra igual que les fotos.** Només la veuen els qui també
+  l’han activada en aquell moment; no es guarda enlloc, ni tan sols temporalment en un servidor.
 
 ## Qui pot veure què
 
@@ -29,6 +31,7 @@ confiar en ningú. L’especificació tècnica exacta és a [docs/PROTOCOL.md](d
 | Algú amb l’enllaç de la web però sense QR | Res de l’event: ni sap on són les dades ni les pot desxifrar.                                                                             |
 | Algú que llegeix tot el codi públic       | El mateix: el codi no conté cap secret.                                                                                                   |
 | Cloudinary (o qui en controli el compte)  | Veure que existeixen fitxers, quan es pugen, des de quines IP i la mida aproximada. Esborrar-ne. **No pot** llegir-los ni falsificar-los. |
+| Ably (si teniu ubicació en viu)           | Veure que algú s’ha connectat, quan, i amb quina freqüència envia senyals. **No pot** veure on és ningú ni fer-se passar per algú.        |
 | GitHub (que serveix la web)               | Veure qui visita la web. Vegeu [El codi que executa el navegador](#4-el-codi-que-executa-el-navegador).                                   |
 
 ## Com funciona
@@ -89,7 +92,8 @@ Encriptar protegeix de la gent de fora. Les signatures protegeixen de la gent de
 ### 4. El codi que executa el navegador
 
 - **Content Security Policy** estricta (vegeu `vite.config.ts`): només s’executa JavaScript del
-  mateix lloc, no es pot carregar res de tercers, i la web només pot parlar amb Cloudinary.
+  mateix lloc, no es pot carregar res de tercers, i la web només pot parlar amb Cloudinary i,
+  si teniu ubicació en viu, amb Ably.
 - **Cap HTML a partir de text**: ESLint prohibeix `innerHTML`, `dangerouslySetInnerHTML` i
   similars. Fins i tot els marcadors del mapa es construeixen com a nodes del DOM.
 - **Només JPEG**: les imatges que venen de la xarxa han de ser JPEG (comprovat per l’etiqueta i
@@ -128,7 +132,20 @@ Un atacant també pot entrar per una dependència o pel procés de build.
   fitxer publicat) i GitHub el signa amb una
   [atestació de build](https://docs.github.com/actions/security-guides/using-artifact-attestations).
 
-### 6. Què es descarta en carregar
+### 6. La ubicació en viu (opcional)
+
+- És un interruptor que cadascú activa o desactiva quan vol: per defecte, **desactivat**, i amagat
+  del tot si l’organitzador no ha configurat aquesta funció.
+- Mentre està activat, el teu mòbil envia la teva posició xifrada exactament igual que una foto:
+  amb la mateixa clau del grup, signada amb la teva clau pròpia. Ningú la pot llegir ni
+  fer-se passar per tu sense les teves claus.
+- Es reparteix amb un servei extern, **Ably**, perquè arribi als altres mòbils sense passar per
+  cap servidor nostre. Ably trasllada el missatge xifrat; no el pot desxifrar.
+- **No es guarda enlloc.** Viu només a la memòria de cada mòbil, mentre dura la sessió. El punt
+  d’algú es va esvaint i desapareixent als altres mòbils al cap d’uns minuts si deixa d’enviar-ne
+  (tanca l’app, apaga l’interruptor, es queda sense cobertura).
+
+### 7. Què es descarta en carregar
 
 Les proves de `src/lib/repository.test.ts` i `src/lib/verify.test.ts` pugen deliberadament tot
 això i comproven que no apareix:
@@ -164,42 +181,47 @@ Cap sistema és perfecte. Aquests són els límits coneguts, sense maquillatge.
    fitxers, i que tots els fitxers d’un mateix tag van junts. Pot **esborrar** fitxers o deixar de
    servir-los, i ningú se n’adonaria (no hi ha prova que hi siguin tots). No els pot llegir ni
    falsificar.
-7. **Qui visita la web sap de quina ciutat és el mapa**: l’extracte del mapa és públic, com la
+7. **Ably veu quan es connecta i envia senyals cadascú**, amb quina freqüència, encara que no en
+   vegi el contingut. Si tens la ubicació en viu activada, algú que controlés el compte d’Ably
+   sabria que ets a prop de l’event en aquella estona, no on exactament.
+8. **Qui ja ha vist la teva posició, l’ha vista.** Desactivar l’interruptor fa que deixis d’enviar-
+   ne de noves, però no esborra res de la memòria de qui ja l’havia rebut en aquell moment.
+9. **Qui visita la web sap de quina ciutat és el mapa**: l’extracte del mapa és públic, com la
    resta de la web. Revela la zona general (per defecte, Barcelona), no els pisos: aquests van
    xifrats.
-8. **El codi el serveix GitHub a cada visita.** Si algú controlés el compte de GitHub o el
-   repositori, podria servir una versió que robés les fotos mentre la mires. És el límit de
-   qualsevol aplicació web. El que es pot fer és **comprovar-ho**: l’atestació i el manifest
-   permeten verificar que el que hi ha publicat ve d’un commit concret (vegeu més avall). El
-   navegador, però, no ho comprova sol.
+10. **El codi el serveix GitHub a cada visita.** Si algú controlés el compte de GitHub o el
+    repositori, podria servir una versió que robés les fotos mentre la mires. És el límit de
+    qualsevol aplicació web. El que es pot fer és **comprovar-ho**: l’atestació i el manifest
+    permeten verificar que el que hi ha publicat ve d’un commit concret (vegeu més avall). El
+    navegador, però, no ho comprova sol.
 
 **Sobre el dispositiu**
 
-9. **Un mòbil desbloquejat o infectat, o una extensió del navegador amb permisos sobre la web,
-   poden fer servir les claus** mentre la pàgina està oberta. Les claus no exportables impedeixen
-   que se les enduguin, no que les facin servir.
-10. **JavaScript no pot esborrar la memòria**: el secret del QR queda a la memòria fins que el
+11. **Un mòbil desbloquejat o infectat, o una extensió del navegador amb permisos sobre la web,
+    poden fer servir les claus** mentre la pàgina està oberta. Les claus no exportables impedeixen
+    que se les enduguin, no que les facin servir.
+12. **JavaScript no pot esborrar la memòria**: el secret del QR queda a la memòria fins que el
     navegador la reaprofita.
-11. **El QR pot quedar guardat** a l’historial de l’app de la càmera o al xat on s’ha compartit.
+13. **El QR pot quedar guardat** a l’historial de l’app de la càmera o al xat on s’ha compartit.
 
 **Sobre els detalls tècnics**
 
-12. **El codi de seguretat només té 32 bits.** Serveix per detectar confusions entre amics, no
+14. **El codi de seguretat només té 32 bits.** Serveix per detectar confusions entre amics, no
     contra algú amb recursos que generi milions de claus fins a trobar-ne una amb el mateix codi.
     L’identificador real té 128 bits.
-13. **Les hores de les fotos les posa el mòbil de qui les penja.** No hi ha rellotge de
+15. **Les hores de les fotos les posa el mòbil de qui les penja.** No hi ha rellotge de
     confiança.
-14. **Trusted Types no està activat**: Leaflet fa servir `innerHTML` per a la línia d’atribució del
+16. **Trusted Types no està activat**: Leaflet fa servir `innerHTML` per a la línia d’atribució del
     mapa. La resta de la CSP sí que s’aplica.
-15. **`frame-ancestors` no es pot posar en una etiqueta `<meta>`**, i GitHub Pages no deixa
+17. **`frame-ancestors` no es pot posar en una etiqueta `<meta>`**, i GitHub Pages no deixa
     enviar capçaleres. La web es podria incrustar en un iframe d’una altra web (clickjacking); no
     hi ha cap acció perillosa d’un sol clic, però cal saber-ho.
-16. **Quan l’organitzador planifica l’itinerari** (`pnpm event:route`), el servei de rutes veu
+18. **Quan l’organitzador planifica l’itinerari** (`pnpm event:route`), el servei de rutes veu
     les coordenades dels pisos en aquell moment, des del seu ordinador: per defecte els servidors
     públics d’OpenStreetMap de FOSSGIS, o Google si ho tria. El resultat es xifra i se signa com la
     resta. La web i els mòbils dels amics no contacten mai cap d’aquests serveis. Les línies de
     metro (`metro.json`) són dades públiques d’OpenStreetMap i es publiquen amb la web.
-17. **El fitxer de claus de l’organitzador** (`out/*.keys.json`) permet afegir pisos i llegir-ho
+19. **El fitxer de claus de l’organitzador** (`out/*.keys.json`) permet afegir pisos i llegir-ho
     tot. Es crea amb permisos `600`, però guardar-lo bé és responsabilitat de l’organitzador.
 
 ## Comprova-ho tu mateix
@@ -247,6 +269,10 @@ I des del navegador:
   els genera. No aportaria res.
 - **Un backend amb usuaris i contrasenyes**: més superfície d’atac i més dades a guardar. Aquí no
   hi ha res a robar del servidor.
+- **Un backend propi (p. ex. Supabase) per a la ubicació en viu**: hauríem d’escriure i mantenir
+  servidor nostre per primera vegada, amb tot el que això implica. Amb Ably, i xifrant el missatge
+  abans de sortir del mòbil com ja fem amb les fotos, arribem al mateix resultat sense cap
+  servidor nou.
 
 ## Com reportar una vulnerabilitat
 
