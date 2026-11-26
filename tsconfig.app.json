@@ -12,7 +12,8 @@
     "src/components/base",
     "src/components/application",
     "src/components/foundations",
-    "src/utils"
+    "src/utils",
+    "src/platform/sw.ts"
   ],
   "references": [{ "path": "./tsconfig.vendor.json" }]
 }

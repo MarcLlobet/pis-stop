@@ -23,7 +23,8 @@ export const CONTENT_SECURITY_POLICY = [
   "base-uri 'none'",
   "form-action 'none'",
   "object-src 'none'",
-  "worker-src 'none'",
+  // The installability-only service worker (src/platform/sw.ts): same origin.
+  "worker-src 'self'",
   'upgrade-insecure-requests',
 ].join('; ');
 
@@ -53,5 +54,17 @@ export default defineConfig({
     sourcemap: true,
     // Everything as files: no inlined data: URLs to audit separately.
     assetsInlineLimit: 0,
+    rollupOptions: {
+      // The service worker is a second, independent entry: it needs a
+      // stable, unhashed path at the site root (not inside assets/), so the
+      // browser can register it and its scope covers the whole app.
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        sw: fileURLToPath(new URL('./src/platform/sw.ts', import.meta.url)),
+      },
+      output: {
+        entryFileNames: (chunk) => (chunk.name === 'sw' ? 'sw.js' : 'assets/[name]-[hash].js'),
+      },
+    },
   },
 });

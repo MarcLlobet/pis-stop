@@ -30,3 +30,15 @@ export const followSystemColorScheme = (): void => {
   apply();
   query.addEventListener('change', apply);
 };
+
+/**
+ * Registers the installability-only service worker (no caching: see
+ * `platform/sw.ts`). Resolved relative to the page, like the map file, so it
+ * works the same at the root of a custom domain or under /pis-stop/.
+ */
+export const registerServiceWorker = (): void => {
+  if ('serviceWorker' in navigator) {
+    const url = new URL('sw.js', document.baseURI).href;
+    navigator.serviceWorker.register(url, { type: 'module' }).catch(() => undefined);
+  }
+};

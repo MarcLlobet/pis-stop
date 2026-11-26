@@ -59,7 +59,9 @@ export const useLiveLocation = ({
   identity,
   profiles,
 }: UseLiveLocationOptions): LiveLocationState => {
-  const [sharing, setSharingState] = useState(false);
+  // On by default while the app is open: the group chose this. It still
+  // stops the moment the tab is hidden or sharing is turned off explicitly.
+  const [sharing, setSharingState] = useState(true);
   const [channel, setChannel] = useState<LiveChannel | null>(null);
   const [rawPeers, setRawPeers] = useState<ReadonlyMap<string, RawPeer>>(new Map());
   const [now, setNow] = useState(() => Date.now());
