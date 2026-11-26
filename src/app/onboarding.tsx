@@ -7,6 +7,7 @@ import { Button } from '@/components/base/buttons/button';
 import { Input } from '@/components/base/input/input';
 
 import { initialOf } from '../lib/format';
+import { currentPosition } from '../platform/geolocation';
 
 export interface OnboardingValues {
   readonly name: string;
@@ -47,6 +48,12 @@ export const Onboarding = ({ eventName, onSubmit }: OnboardingProps) => {
   const [status, setStatus] = useState<Status>({ kind: 'editing' });
   const preview = usePreview(avatar);
   const saving = status.kind === 'saving';
+
+  // Asked once, here, rather than on the first upload: by then it is either
+  // already granted or already refused, so uploading never stalls on it.
+  useEffect(() => {
+    void currentPosition();
+  }, []);
 
   const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
