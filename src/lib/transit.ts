@@ -21,6 +21,12 @@ const MODE_COLORS: Readonly<Record<TravelMode, string>> = {
   bike: '#16A34A',
 };
 
+/**
+ * The walk colour is nearly black, which disappears on the dark basemap (also
+ * nearly black): on a dark map it is drawn light instead.
+ */
+const walkColor = (dark: boolean): string => (dark ? '#D1D5DB' : MODE_COLORS.walk);
+
 export const lineColor = (line: string): string | null => LINE_COLORS[line.toUpperCase()] ?? null;
 
 export interface LegStyle {
@@ -34,14 +40,14 @@ export interface LegStyle {
  * How a leg is drawn, from its first (main) option: metro in the colour of
  * its first line, walking as a dotted line, cycling dashed.
  */
-export const legStyle = (leg: Leg): LegStyle => {
+export const legStyle = (leg: Leg, dark = false): LegStyle => {
   const main: LegOption | undefined = leg.options[0];
   if (main === undefined) {
     return { color: MODE_COLORS.metro, dashArray: '6 10', weight: 4 };
   }
   switch (main.mode) {
     case 'walk':
-      return { color: MODE_COLORS.walk, dashArray: '1 8', weight: 4 };
+      return { color: walkColor(dark), dashArray: '1 8', weight: 4 };
     case 'bike':
       return { color: MODE_COLORS.bike, dashArray: '10 8', weight: 4 };
     case 'metro':
@@ -59,10 +65,10 @@ export const legStyle = (leg: Leg): LegStyle => {
 export const modeColor = (mode: TravelMode): string => MODE_COLORS[mode];
 
 /** How one segment of a planned route is drawn: rides in their line colour. */
-export const segmentStyle = (segment: Segment): LegStyle => {
+export const segmentStyle = (segment: Segment, dark = false): LegStyle => {
   switch (segment.mode) {
     case 'walk':
-      return { color: MODE_COLORS.walk, dashArray: '1 8', weight: 4 };
+      return { color: walkColor(dark), dashArray: '1 8', weight: 4 };
     case 'bike':
       return { color: MODE_COLORS.bike, dashArray: '10 8', weight: 4 };
     case 'ride':

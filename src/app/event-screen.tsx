@@ -18,7 +18,6 @@ import { Lightbox } from './lightbox';
 import { MapView } from './map-view';
 import { PhotoSheet } from './photo-sheet';
 import { SecuritySheet } from './security-sheet';
-import { StopSheet } from './stop-sheet';
 import { UploadButton } from './upload-button';
 
 interface EventScreenProps {
@@ -43,14 +42,12 @@ export const EventScreen = ({
   onLeave,
 }: EventScreenProps) => {
   const [view, setView] = useState<View>('map');
-  const [stopId, setStopId] = useState<string | null>(null);
   const [opened, setOpened] = useState<PhotoView | null>(null);
   const [group, setGroup] = useState<readonly PhotoView[] | null>(null);
   /** Which way to go for each leg (leg index → option index). */
   const [choices, setChoices] = useState<ReadonlyMap<number, number>>(new Map());
   const [panel, setPanel] = useState<'security' | 'leave' | null>(null);
-  const upload = useUpload({ repository, stops: snapshot.stops, identity, onPhoto });
-  const stop = snapshot.stops.find(({ id }) => id === stopId);
+  const upload = useUpload({ repository, identity, onPhoto });
 
   return (
     <Tabs
@@ -106,9 +103,6 @@ export const EventScreen = ({
       <TabPanel id="map" className="relative min-h-0 flex-1">
         <MapView
           snapshot={snapshot}
-          onSelectStop={({ id }) => {
-            setStopId(id);
-          }}
           onOpenPhoto={setOpened}
           onOpenGroup={setGroup}
           choices={choices}
@@ -133,17 +127,6 @@ export const EventScreen = ({
         }}
         onDismiss={upload.dismiss}
       />
-
-      {stop !== undefined && (
-        <StopSheet
-          stop={stop}
-          snapshot={snapshot}
-          onOpen={setOpened}
-          onClose={() => {
-            setStopId(null);
-          }}
-        />
-      )}
 
       {group !== null && (
         <PhotoSheet

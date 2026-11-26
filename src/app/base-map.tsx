@@ -12,7 +12,8 @@ const ATTRIBUTION =
 
 const darkQuery = (): MediaQueryList => window.matchMedia('(prefers-color-scheme: dark)');
 
-const usePrefersDark = (): boolean =>
+/** Whether the system theme is dark, kept live as the user changes it. */
+export const usePrefersDark = (): boolean =>
   useSyncExternalStore(
     (onChange) => {
       const query = darkQuery();

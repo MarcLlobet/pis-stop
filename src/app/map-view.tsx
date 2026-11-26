@@ -13,16 +13,16 @@ import {
 } from 'react-leaflet';
 
 import { clusterPoints } from '../lib/cluster';
+import { initialOf } from '../lib/format';
 import { centroid } from '../lib/geo';
-import { countByStop, type PlacedPhoto, placedPhotos } from '../lib/selectors';
-import type { PhotoView, Snapshot } from '../lib/snapshot';
+import { type PlacedPhoto, placedPhotos } from '../lib/selectors';
+import type { PhotoView, ProfileView, Snapshot } from '../lib/snapshot';
 import { chosenOption, type LegStyle, legStyle, segmentStyle } from '../lib/transit';
-import type { LatLng, Stop } from '../lib/types';
-import { BaseMap } from './base-map';
+import type { LatLng } from '../lib/types';
+import { BaseMap, usePrefersDark } from './base-map';
 
 interface MapViewProps {
   readonly snapshot: Snapshot;
-  readonly onSelectStop: (stop: Stop) => void;
   readonly onOpenPhoto: (photo: PhotoView) => void;
   readonly onOpenGroup: (photos: readonly PhotoView[]) => void;
   /** Which option is shown for each leg (by leg index); the first by default. */
@@ -51,43 +51,84 @@ const element = (
   return node;
 };
 
-const stopIcon = (stop: Stop, count: number) =>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+const svgElement = (
+  tag: string,
+  attributes: Readonly<Record<string, string>>,
+  ...children: readonly Node[]
+): SVGElement => {
+  const node = document.createElementNS(SVG_NS, tag);
+  Object.entries(attributes).forEach(([name, value]) => {
+    node.setAttribute(name, value);
+  });
+  node.append(...children);
+  return node;
+};
+
+/** Untitled UI's Home02, redrawn as DOM nodes: a divIcon takes no React tree. */
+const houseIcon = (): SVGElement =>
+  svgElement(
+    'svg',
+    { viewBox: '0 0 24 24', width: '20', height: '20', fill: 'none', 'aria-hidden': 'true' },
+    svgElement('path', {
+      d: 'M9 21v-7.4c0-.56 0-.84.109-1.054a1 1 0 0 1 .437-.437C9.76 12 10.04 12 10.6 12h2.8c.56 0 .84 0 1.054.109a1 1 0 0 1 .437.437C15 12.76 15 13.04 15 13.6V21M11.018 2.764 4.235 8.039c-.453.353-.68.53-.843.75a2 2 0 0 0-.318.65C3 9.704 3 9.991 3 10.565V17.8c0 1.12 0 1.68.218 2.108a2 2 0 0 0 .874.874C4.52 21 5.08 21 6.2 21h11.6c1.12 0 1.68 0 2.108-.218a2 2 0 0 0 .874-.874C21 19.48 21 18.92 21 17.8v-7.235c0-.574 0-.861-.074-1.126a2.002 2.002 0 0 0-.318-.65c-.163-.22-.39-.397-.843-.75l-6.783-5.275c-.351-.273-.527-.41-.72-.462a1 1 0 0 0-.523 0c-.194.052-.37.189-.721.462Z',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    }),
+  );
+
+/** A stop only marks the itinerary: photos are placed on the map on their own. */
+const stopIcon = () =>
   divIcon({
     className: '',
     iconSize: [40, 40],
     iconAnchor: [20, 20],
-    html: element(
-      'span',
-      { class: 'pin', 'aria-hidden': 'true' },
-      String(stop.order),
-      ...(count > 0 ? [element('span', { class: 'pin-count' }, String(count))] : []),
-    ),
+    html: element('span', { class: 'pin', 'aria-hidden': 'true' }, houseIcon()),
   });
 
-const thumbnail = (photo: PlacedPhoto): HTMLElement =>
-  element('img', { src: photo.thumbUrl, alt: '', class: 'size-full object-cover' });
+/** Who left a photo there: their avatar, or their initial when they have none. */
+const avatarContent = (profile: ProfileView | undefined): HTMLElement =>
+  profile?.avatarUrl !== null && profile?.avatarUrl !== undefined
+    ? element('img', { src: profile.avatarUrl, alt: '', class: 'size-full object-cover' })
+    : element('span', { class: 'pin-initial' }, initialOf(profile?.name ?? '?'));
 
-const photoIcon = (photo: PlacedPhoto) =>
+const personIcon = (profile: ProfileView | undefined) =>
   divIcon({
     className: '',
     iconSize: [40, 40],
     iconAnchor: [20, 20],
-    html: element('span', { class: 'pin-photo' }, thumbnail(photo)),
+    html: element('span', { class: 'pin-photo' }, avatarContent(profile)),
   });
 
-/** Several nearby photos: the newest one with a count, drawn as a small stack. */
-const groupIcon = (photos: readonly PlacedPhoto[]) =>
-  divIcon({
+/** At most this many faces are drawn; past it, the last cell counts the rest. */
+const FACES_SHOWN = 4;
+
+/** Several different people posted from the same spot: their avatars in a grid. */
+const peopleIcon = (profiles: readonly (ProfileView | undefined)[]) => {
+  const overflow = profiles.length > FACES_SHOWN;
+  const shown = profiles.slice(0, overflow ? FACES_SHOWN - 1 : FACES_SHOWN);
+  const cells = shown.map((profile) =>
+    element('span', { class: 'pin-face' }, avatarContent(profile)),
+  );
+  const more = overflow
+    ? [
+        element(
+          'span',
+          { class: 'pin-face pin-more' },
+          `+${String(profiles.length - shown.length)}`,
+        ),
+      ]
+    : [];
+  return divIcon({
     className: '',
     iconSize: [44, 44],
     iconAnchor: [22, 22],
-    html: element(
-      'span',
-      { class: 'pin-group' },
-      element('span', { class: 'pin-photo' }, ...photos.slice(0, 1).map(thumbnail)),
-      element('span', { class: 'pin-count' }, String(photos.length)),
-    ),
+    html: element('span', { class: 'pin-people' }, ...cells, ...more),
   });
+};
 
 const PLAIN_ROUTE: LegStyle = { color: ROUTE_COLOR, dashArray: '6 10', weight: 4 };
 
@@ -104,7 +145,7 @@ interface RouteLine {
  * - otherwise a single line through the leg's waypoints, styled by mode;
  * - without an itinerary, a plain dashed route.
  */
-const routeLines = (snapshot: Snapshot, choices: ReadonlyMap<number, number>) =>
+const routeLines = (snapshot: Snapshot, choices: ReadonlyMap<number, number>, dark: boolean) =>
   snapshot.stops.slice(1).flatMap((to, index): readonly RouteLine[] => {
     const from = snapshot.stops[index] ?? to;
     const leg = snapshot.legs[index];
@@ -113,14 +154,14 @@ const routeLines = (snapshot: Snapshot, choices: ReadonlyMap<number, number>) =>
       return option.segments.map((segment, part) => ({
         key: `${from.id}-${to.id}-${String(part)}`,
         positions: segment.path.map(toTuple),
-        style: segmentStyle(segment),
+        style: segmentStyle(segment, dark),
       }));
     }
     return [
       {
         key: `${from.id}-${to.id}`,
         positions: [from.position, ...(leg?.path ?? []), to.position].map(toTuple),
-        style: leg === undefined ? PLAIN_ROUTE : legStyle(leg),
+        style: leg === undefined ? PLAIN_ROUTE : legStyle(leg, dark),
       },
     ];
   });
@@ -152,16 +193,21 @@ const GROUP_RADIUS = 48;
 
 interface PhotoPinsProps {
   readonly photos: readonly PlacedPhoto[];
+  readonly profiles: ReadonlyMap<string, ProfileView>;
   readonly onOpenPhoto: (photo: PhotoView) => void;
   readonly onOpenGroup: (photos: readonly PhotoView[]) => void;
 }
 
+/** Always above the stops and the route, whatever their own screen position. */
+const PHOTO_Z_OFFSET = 10_000;
+
 /**
- * Photo pins, grouped by distance on screen. Zooming in splits groups; a
- * group that cannot be split any further (same spot, or maximum zoom) opens
- * as a list instead.
+ * Photo pins, grouped by distance on screen: one person's avatar, or several
+ * people's when more than one posted from the same spot. Zooming in splits
+ * groups; a group that cannot be split any further (same spot, or maximum
+ * zoom) opens as a list instead.
  */
-const PhotoPins = ({ photos, onOpenPhoto, onOpenGroup }: PhotoPinsProps) => {
+const PhotoPins = ({ photos, profiles, onOpenPhoto, onOpenGroup }: PhotoPinsProps) => {
   const map = useMap();
   const [zoom, setZoom] = useState(() => map.getZoom());
   useMapEvent('zoomend', () => {
@@ -186,14 +232,11 @@ const PhotoPins = ({ photos, onOpenPhoto, onOpenGroup }: PhotoPinsProps) => {
       return null;
     }
     const center = centroid(items.map(({ position }) => position)) ?? first.position;
+    const authorIds = [...new Set(items.map(({ authorId }) => authorId))];
+    // Opens over the map rather than moving it: never zooms in on a click.
     const open = () => {
       if (items.length === 1) {
         onOpenPhoto(first);
-        return;
-      }
-      const bounds = latLngBounds(items.map(({ position }) => toTuple(position)));
-      if (map.getBoundsZoom(bounds) > map.getZoom()) {
-        map.flyToBounds(bounds.pad(0.5));
       } else {
         onOpenGroup(items);
       }
@@ -202,21 +245,20 @@ const PhotoPins = ({ photos, onOpenPhoto, onOpenGroup }: PhotoPinsProps) => {
       <Marker
         key={`${first.id}:${items.length}`}
         position={toTuple(center)}
-        icon={items.length === 1 ? photoIcon(first) : groupIcon(items)}
+        icon={
+          authorIds.length === 1
+            ? personIcon(profiles.get(first.authorId))
+            : peopleIcon(authorIds.map((authorId) => profiles.get(authorId)))
+        }
+        zIndexOffset={PHOTO_Z_OFFSET}
         eventHandlers={{ click: open }}
       />
     );
   });
 };
 
-export const MapView = ({
-  snapshot,
-  onSelectStop,
-  onOpenPhoto,
-  onOpenGroup,
-  choices,
-}: MapViewProps) => {
-  const counts = useMemo(() => countByStop(snapshot.photos), [snapshot.photos]);
+export const MapView = ({ snapshot, onOpenPhoto, onOpenGroup, choices }: MapViewProps) => {
+  const dark = usePrefersDark();
   const placed = useMemo(() => placedPhotos(snapshot.photos), [snapshot.photos]);
   const route = snapshot.stops.map(({ position }) => toTuple(position));
   const points = [...route, ...placed.map(({ position }) => toTuple(position))];
@@ -232,7 +274,7 @@ export const MapView = ({
       maxZoom={18}
     >
       <BaseMap />
-      {routeLines(snapshot, choices).map(({ key, positions, style }) => (
+      {routeLines(snapshot, choices, dark).map(({ key, positions, style }) => (
         <Polyline
           key={key}
           positions={[...positions]}
@@ -265,18 +307,16 @@ export const MapView = ({
         <Marker
           key={stop.id}
           position={toTuple(stop.position)}
-          icon={stopIcon(stop, counts.get(stop.id) ?? 0)}
+          icon={stopIcon()}
           title={stop.name}
-          // The itinerary stays readable on top of the photo pins.
-          zIndexOffset={1000}
-          eventHandlers={{
-            click: () => {
-              onSelectStop(stop);
-            },
-          }}
         />
       ))}
-      <PhotoPins photos={placed} onOpenPhoto={onOpenPhoto} onOpenGroup={onOpenGroup} />
+      <PhotoPins
+        photos={placed}
+        profiles={snapshot.profiles}
+        onOpenPhoto={onOpenPhoto}
+        onOpenGroup={onOpenGroup}
+      />
     </MapContainer>
   );
 };

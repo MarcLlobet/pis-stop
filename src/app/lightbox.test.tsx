@@ -5,26 +5,24 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { safetyCode } from '../lib/identity';
 import { EMPTY_SNAPSHOT, type Snapshot } from '../lib/snapshot';
-import { photoView, profileView, stopEntry } from '../test/fixtures';
+import { photoView, profileView } from '../test/fixtures';
 import { Lightbox } from './lightbox';
 
 const authorId = 'DtOmq5V_9vWaljCkc9MafQ';
-const photo = photoView('a', { authorId, stopId: 's1' });
+const photo = photoView('a', { authorId });
 const snapshot: Snapshot = {
   ...EMPTY_SNAPSHOT,
-  stops: [stopEntry('s1', 1).meta],
   profiles: new Map([[authorId, profileView(authorId, { name: 'Anna' })]]),
   photos: [photo],
 };
 
 describe('Lightbox', () => {
-  it('shows who took the photo, their safety code and where, then the full image', async () => {
+  it('shows who took the photo, their safety code, then the full image', async () => {
     const openPhoto = vi.fn(() => Promise.resolve('blob:full'));
     render(<Lightbox photo={photo} snapshot={snapshot} openPhoto={openPhoto} onClose={vi.fn()} />);
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveTextContent('Anna');
     expect(dialog).toHaveTextContent(safetyCode(authorId));
-    expect(dialog).toHaveTextContent('Pis s1');
     expect(openPhoto).toHaveBeenCalledWith(photo);
     expect(await screen.findByRole('img', { name: 'Foto de Anna' })).toHaveAttribute(
       'src',
