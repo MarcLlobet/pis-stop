@@ -6,9 +6,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Onboarding } from './onboarding';
 
 beforeEach(() => {
-  // jsdom does not implement object URLs.
-  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview');
-  vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined);
+  // jsdom does not implement object URLs, so there is no existing method to
+  // spy on: stub them outright instead.
+  /* eslint-disable functional/immutable-data -- test double */
+  URL.createObjectURL = vi.fn(() => 'blob:preview');
+  URL.revokeObjectURL = vi.fn();
+  /* eslint-enable functional/immutable-data */
 });
 
 const fill = async () => {
