@@ -1,4 +1,4 @@
-import { AlertCircle } from '@untitledui/icons';
+import { AlertCircle, Download01 } from '@untitledui/icons';
 import { useEffect, useState } from 'react';
 
 import { LoadingIndicator } from '@/components/application/loading-indicator/loading-indicator';
@@ -60,6 +60,16 @@ export const Lightbox = ({ photo, snapshot, openPhoto, onClose }: LightboxProps)
           </h2>
           <p className="truncate text-sm text-tertiary_on-brand">{formatTime(photo.takenAt)}</p>
         </div>
+        {full.kind === 'ready' && (
+          <a
+            href={full.url}
+            download={`pis-stop-${photo.id}.jpg`}
+            aria-label="Descarrega la foto"
+            className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-fg-white/70 outline-focus-ring transition duration-100 ease-linear hover:bg-white/20 hover:text-fg-white focus:outline-hidden focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            <Download01 className="size-5 shrink-0" aria-hidden="true" />
+          </a>
+        )}
         <CloseButton label="Tanca" theme="dark" onPress={onClose} />
       </header>
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-2 pt-0">

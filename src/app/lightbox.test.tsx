@@ -28,6 +28,22 @@ describe('Lightbox', () => {
       'src',
       'blob:full',
     );
+    expect(await screen.findByRole('link', { name: 'Descarrega la foto' })).toHaveAttribute(
+      'href',
+      'blob:full',
+    );
+  });
+
+  it('offers no download link while the full image is not ready', () => {
+    render(
+      <Lightbox
+        photo={photo}
+        snapshot={snapshot}
+        openPhoto={() => new Promise(() => undefined)}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('link', { name: 'Descarrega la foto' })).not.toBeInTheDocument();
   });
 
   it('says so when the original fails verification', async () => {
