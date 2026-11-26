@@ -180,7 +180,6 @@ const isProfile = (value: Fields): value is Profile & Fields =>
 const isPhoto = (value: Fields): value is Photo & Fields =>
   isId(value['id']) &&
   isId(value['authorId']) &&
-  (value['stopId'] === null || isId(value['stopId'])) &&
   (value['position'] === null || isLatLng(value['position'])) &&
   isIsoDate(value['takenAt']) &&
   isText(500)(value['fullUrl']) &&
@@ -235,7 +234,6 @@ export const parseMeta = (value: unknown): Meta | null => {
             kind: 'photo',
             id: value.id,
             authorId: value.authorId,
-            stopId: value.stopId,
             position: value.position && { lat: value.position.lat, lng: value.position.lng },
             takenAt: value.takenAt,
             fullUrl: value.fullUrl,

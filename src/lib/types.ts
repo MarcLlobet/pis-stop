@@ -99,7 +99,6 @@ export interface Photo {
   readonly kind: 'photo';
   readonly id: string;
   readonly authorId: string;
-  readonly stopId: string | null;
   readonly position: LatLng | null;
   readonly takenAt: string;
   /** Location of the encrypted full-size image. */

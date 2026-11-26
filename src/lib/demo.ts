@@ -136,7 +136,6 @@ export const demoEntries = (event: DemoEvent = DEMO_EVENT): readonly Entry[] => 
           photoEntry(
             author.id,
             {
-              stopId: stop.id,
               position: jitter(stop.position, index),
               full: svgImage('', 1200, 900),
               thumb: svgImage(tileSvg(photo.label, photo.hue), 400, 300),

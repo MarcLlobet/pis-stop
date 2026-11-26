@@ -28,7 +28,6 @@ export interface NewProfile {
 }
 
 export interface NewPhoto {
-  readonly stopId: string | null;
   readonly position: LatLng | null;
   readonly full: EncodedImage;
   readonly thumb: EncodedImage;
@@ -86,7 +85,6 @@ export const photoEntry = (
     kind: 'photo',
     id: full.id,
     authorId,
-    stopId: input.stopId,
     position: input.position,
     takenAt: takenAt.toISOString(),
     fullUrl: full.url,

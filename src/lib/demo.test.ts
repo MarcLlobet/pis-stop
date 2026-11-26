@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { fakeToUrl, jpeg, stopEntry } from '../test/fixtures';
 import { avatarSvg, createDemoRepository, demoEntries, tileSvg } from './demo';
+import { distanceMeters } from './geo';
 import { generateIdentity } from './identity';
 
 const repository = createDemoRepository({
@@ -11,16 +12,19 @@ const repository = createDemoRepository({
 });
 
 describe('demo data', () => {
-  it('has an event, stops, friends and photos snapped to stops', async () => {
+  it('has an event, stops, friends and photos placed near the stops', async () => {
     const snapshot = await repository.load();
     expect(snapshot.eventName).toBe('Correpisos de prova');
     expect(snapshot.stops).toHaveLength(4);
     expect(snapshot.profiles.size).toBe(3);
     expect(snapshot.photos.length).toBeGreaterThan(0);
-    const stopIds = new Set(snapshot.stops.map(({ id }) => id));
-    expect(snapshot.photos.every(({ stopId }) => stopId !== null && stopIds.has(stopId))).toBe(
-      true,
-    );
+    expect(
+      snapshot.photos.every(
+        (photo) =>
+          photo.position !== null &&
+          snapshot.stops.some((stop) => distanceMeters(stop.position, photo.position!) < 50),
+      ),
+    ).toBe(true);
   });
 
   it('is rebuilt fresh on every call', () => {
@@ -39,7 +43,6 @@ describe('createDemoRepository', () => {
     const me = await generateIdentity();
     const profile = await repository.publishProfile(me, { name: 'Jo', email: '', avatar: null });
     const photo = await repository.publishPhoto(me, {
-      stopId: null,
       position: null,
       full: { bytes: jpeg(1), type: 'image/jpeg', width: 1, height: 1 },
       thumb: { bytes: jpeg(), type: 'image/jpeg', width: 1, height: 1 },
@@ -84,6 +87,12 @@ describe('createDemoRepository with another route', () => {
     ).load();
     expect(snapshot.eventName).toBe('Correpisos 2026');
     expect(snapshot.stops.map(({ id }) => id)).toEqual(['a', 'b']);
-    expect(snapshot.photos.every(({ stopId }) => stopId === 'a' || stopId === 'b')).toBe(true);
+    expect(
+      snapshot.photos.every(
+        (photo) =>
+          photo.position !== null &&
+          stops.some((stop) => distanceMeters(stop.position, photo.position!) < 50),
+      ),
+    ).toBe(true);
   });
 });

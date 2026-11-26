@@ -72,7 +72,6 @@ const image = (...bytes: readonly number[]): EncodedImage => ({
 });
 
 const newPhoto = {
-  stopId: 's1',
   position: { lat: 41.4, lng: 2.17 },
   full: image(1, 2),
   thumb: image(3),
@@ -118,7 +117,7 @@ describe('createCloudinaryRepository', () => {
       avatarUrl: 'fake:image/jpeg:5',
     });
     expect(snapshot.photos).toEqual([published]);
-    expect(published).toMatchObject({ id: 'photo-1', authorId: me.id, stopId: 's1' });
+    expect(published).toMatchObject({ id: 'photo-1', authorId: me.id });
   });
 
   it('never uploads plaintext, and leaves full-size images untagged', async () => {

@@ -28,7 +28,6 @@ export const photoMeta = (id: string, overrides: Partial<Photo> = {}): Photo => 
   kind: 'photo',
   id,
   authorId: 'p1',
-  stopId: 's1',
   position: { lat: 41.4, lng: 2.17 },
   takenAt: '2026-12-12T13:00:00.000Z',
   fullUrl: `https://example.com/${id}`,

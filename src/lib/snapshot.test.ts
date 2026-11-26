@@ -82,8 +82,8 @@ describe('optimistic merges', () => {
 
   it('replaces a photo with the same id', () => {
     const base = { ...EMPTY_SNAPSHOT, photos: [photoView('a')] };
-    expect(withPhoto(base, photoView('a', { stopId: null })).photos).toEqual([
-      photoView('a', { stopId: null }),
+    expect(withPhoto(base, photoView('a', { position: null })).photos).toEqual([
+      photoView('a', { position: null }),
     ]);
   });
 

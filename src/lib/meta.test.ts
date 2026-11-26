@@ -25,7 +25,6 @@ const photo: Photo = {
   kind: 'photo',
   id: 'ph1',
   authorId: 'p1',
-  stopId: 's1',
   position: { lat: 41.38, lng: 2.16 },
   takenAt: '2026-12-12T12:30:00.000Z',
   fullUrl: 'https://example.com/full',
@@ -51,7 +50,7 @@ describe('parseMeta', () => {
     ['stop', stop],
     ['profile', profile],
     ['photo', photo],
-    ['photo without stop or position', { ...photo, stopId: null, position: null }],
+    ['photo without position', { ...photo, position: null }],
   ])('accepts a valid %s', (_, value) => {
     expect(parseMeta(value)).toEqual(value);
   });
@@ -75,7 +74,6 @@ describe('parseMeta', () => {
     ['a profile without id', { ...profile, id: '' }],
     ['a profile with a numeric email', { ...profile, email: 3 }],
     ['a photo with a bad size', { ...photo, width: '1600' }],
-    ['a photo with an empty stop id', { ...photo, stopId: '' }],
   ])('rejects %s', (_, value) => {
     expect(parseMeta(value)).toBeNull();
   });

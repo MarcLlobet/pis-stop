@@ -1,16 +1,6 @@
 import type { PhotoView } from './snapshot';
 import type { LatLng } from './types';
 
-export const photosOfStop = (photos: readonly PhotoView[], stopId: string): readonly PhotoView[] =>
-  photos.filter((photo) => photo.stopId === stopId);
-
-export const countByStop = (photos: readonly PhotoView[]): ReadonlyMap<string, number> =>
-  photos.reduce<ReadonlyMap<string, number>>(
-    (counts, { stopId }) =>
-      stopId === null ? counts : new Map([...counts, [stopId, (counts.get(stopId) ?? 0) + 1]]),
-    new Map(),
-  );
-
 export type PlacedPhoto = PhotoView & { readonly position: LatLng };
 
 /**

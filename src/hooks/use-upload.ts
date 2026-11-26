@@ -1,11 +1,9 @@
 import { useCallback, useState } from 'react';
 
-import { nearestStop } from '../lib/geo';
 import type { Identity } from '../lib/identity';
 import { FULL_MAX_SIDE, THUMB_MAX_SIDE } from '../lib/image';
 import type { EventRepository } from '../lib/repository';
 import type { PhotoView } from '../lib/snapshot';
-import type { Stop } from '../lib/types';
 import { currentPosition } from '../platform/geolocation';
 import { encodeImage } from '../platform/image';
 
@@ -16,12 +14,11 @@ export type UploadStatus =
 
 interface UploadOptions {
   readonly repository: EventRepository;
-  readonly stops: readonly Stop[];
   readonly identity: Identity;
   readonly onPhoto: (photo: PhotoView) => void;
 }
 
-export const useUpload = ({ repository, stops, identity, onPhoto }: UploadOptions) => {
+export const useUpload = ({ repository, identity, onPhoto }: UploadOptions) => {
   const [status, setStatus] = useState<UploadStatus>({ kind: 'idle' });
 
   const uploadFiles = useCallback(
@@ -34,7 +31,15 @@ export const useUpload = ({ repository, stops, identity, onPhoto }: UploadOption
       try {
         // One location for the whole batch: you are at one flat at a time.
         const position = await currentPosition();
-        const stopId = position === null ? null : (nearestStop(stops, position)?.id ?? null);
+        if (position === null) {
+          // Without it, a photo cannot be placed on the map or tied to a
+          // stop at all: better to refuse than to upload it unmoored.
+          setStatus({
+            kind: 'error',
+            message: 'Activa la ubicació per pujar fotos: calen per saber on les vas fer.',
+          });
+          return;
+        }
         // Sequential on purpose: phones on mobile data choke on parallel uploads.
         await files.reduce(async (previous, file, index) => {
           await previous;
@@ -43,7 +48,7 @@ export const useUpload = ({ repository, stops, identity, onPhoto }: UploadOption
             encodeImage(file, FULL_MAX_SIDE, 0.82),
             encodeImage(file, THUMB_MAX_SIDE, 0.72),
           ]);
-          onPhoto(await repository.publishPhoto(identity, { stopId, position, full, thumb }));
+          onPhoto(await repository.publishPhoto(identity, { position, full, thumb }));
           setStatus({ kind: 'uploading', done: index + 1, total });
         }, Promise.resolve());
         setStatus({ kind: 'idle' });
@@ -54,7 +59,7 @@ export const useUpload = ({ repository, stops, identity, onPhoto }: UploadOption
         });
       }
     },
-    [repository, stops, identity, onPhoto],
+    [repository, identity, onPhoto],
   );
 
   const dismiss = useCallback(() => {
