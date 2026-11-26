@@ -7,6 +7,7 @@ import { FeaturedIcon } from '@/components/foundations/featured-icon/featured-ic
 
 import { useEvent } from '../hooks/use-event';
 import { useIdentity } from '../hooks/use-identity';
+import { useInstallPrompt } from '../hooks/use-install-prompt';
 import { useLiveLocation } from '../hooks/use-live-location';
 import { useLocalEvent } from '../hooks/use-local-event';
 import { type CloudinaryConfig, createCloudinaryClient } from '../lib/cloudinary';
@@ -18,6 +19,7 @@ import { createCloudinaryRepository } from '../lib/repository';
 import { browserDeps, browserKeyStore } from '../platform/browser';
 import { encodeImage } from '../platform/image';
 import { EventScreen } from './event-screen';
+import { InstallHint } from './install-hint';
 import { Onboarding, type OnboardingValues } from './onboarding';
 
 export type EventSource =
@@ -78,6 +80,7 @@ export const EventApp = ({ source, onLeave }: EventAppProps) => {
   // Hooks run unconditionally, before the loading/error returns below, so
   // live location updates as soon as the profile list and identity are ready.
   const mine = identity.state.status === 'ready' ? identity.state.identity : null;
+  const install = useInstallPrompt();
   const live = useLiveLocation({
     config: source.kind === 'event' ? source.ably : null,
     keys: source.kind === 'event' ? source.keys : null,
@@ -119,7 +122,16 @@ export const EventApp = ({ source, onLeave }: EventAppProps) => {
   };
 
   return mine === null || me === undefined ? (
-    <Onboarding eventName={state.snapshot.eventName} onSubmit={createProfile} />
+    install.show ? (
+      <InstallHint
+        eventName={state.snapshot.eventName}
+        platform={install.platform}
+        install={install.install}
+        onContinue={install.dismiss}
+      />
+    ) : (
+      <Onboarding eventName={state.snapshot.eventName} onSubmit={createProfile} />
+    )
   ) : (
     <EventScreen
       snapshot={state.snapshot}
