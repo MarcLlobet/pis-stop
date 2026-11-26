@@ -23,13 +23,26 @@ describe('chainWays', () => {
     ).toEqual([p(1), p(2), p(3), p(4)]);
   });
 
-  it('flips the first way when it is the one listed backwards', () => {
+  it('flips a way that only connects at its start to the chain so far', () => {
     expect(
       chainWays([
         [p(2), p(1)],
         [p(2), p(3)],
       ]),
-    ).toEqual([p(1), p(2), p(3)]);
+    ).toEqual([p(3), p(2), p(1)]);
+  });
+
+  it('joins ways regardless of the order they were listed in', () => {
+    // Real OSM route relations do not always list their ways in travel
+    // order; joining them in the given order used to leave a jump between
+    // unconnected ways instead of finding where each one really attaches.
+    expect(
+      chainWays([
+        [p(3), p(4)],
+        [p(1), p(2)],
+        [p(3), p(2)],
+      ]),
+    ).toEqual([p(1), p(2), p(3), p(4)]);
   });
 
   it('handles no ways', () => {
@@ -63,6 +76,16 @@ const overpass = {
           ],
         },
         { type: 'node', ref: 9, role: 'platform', lat: 41.4, lon: 2.25 },
+        // A platform way, far from the track: must be excluded, or it would
+        // derail the chained path (and sliceLine along with it).
+        {
+          type: 'way',
+          role: 'platform',
+          geometry: [
+            { lat: 41.9, lon: 2.9 },
+            { lat: 41.95, lon: 2.95 },
+          ],
+        },
       ],
     },
     // The other direction, with fewer stops: ignored.

@@ -32,23 +32,48 @@ const samePoint = (a: LatLng | undefined, b: LatLng | undefined): boolean =>
   a !== undefined && b !== undefined && distanceMeters(a, b) < 1;
 
 /**
- * Joins the ways of a route relation into one line. Ways may be listed in
- * either direction, so each one is flipped when that makes it connect.
+ * Extends `line` with whichever `remaining` way connects to either of its
+ * ends (flipped first if that is what makes it connect), one way at a time,
+ * until none do. Any way that never touches the rest (a rare gap in the
+ * data) is appended last, in the order it was given, so nothing collected
+ * from OSM is dropped.
+ */
+const extendChain = (
+  line: readonly LatLng[],
+  remaining: readonly (readonly LatLng[])[],
+): readonly LatLng[] => {
+  const end = line.at(-1);
+  const next = remaining.find((way) => samePoint(end, way[0]) || samePoint(end, way.at(-1)));
+  if (next !== undefined) {
+    const oriented = samePoint(end, next.at(-1)) ? [...next].reverse() : next;
+    return extendChain(
+      [...line, ...oriented.slice(1)],
+      remaining.filter((way) => way !== next),
+    );
+  }
+  const start = line[0];
+  const previous = remaining.find(
+    (way) => samePoint(start, way[0]) || samePoint(start, way.at(-1)),
+  );
+  if (previous === undefined) {
+    return remaining.reduce((joined, way) => [...joined, ...way], line);
+  }
+  const oriented = samePoint(start, previous.at(-1)) ? previous : [...previous].reverse();
+  return extendChain(
+    [...oriented.slice(0, -1), ...line],
+    remaining.filter((way) => way !== previous),
+  );
+};
+
+/**
+ * Joins the ways of a route relation into one line, by connecting shared
+ * endpoints rather than trusting the order OSM listed them in (relation
+ * members are not always sequential, which used to produce a path that
+ * jumped around instead of following the stations in order).
  */
 export const chainWays = (ways: readonly (readonly LatLng[])[]): readonly LatLng[] => {
-  const [first, second] = ways;
-  if (first === undefined) {
-    return [];
-  }
-  const start =
-    second !== undefined && (samePoint(first[0], second[0]) || samePoint(first[0], second.at(-1)))
-      ? [...first].reverse()
-      : first;
-  return ways.slice(1).reduce<readonly LatLng[]>((line, way) => {
-    const end = line.at(-1);
-    const oriented = samePoint(end, way.at(-1)) ? [...way].reverse() : way;
-    return [...line, ...(samePoint(end, oriented[0]) ? oriented.slice(1) : oriented)];
-  }, start);
+  const [first, ...rest] = ways;
+  return first === undefined ? [] : extendChain(first, rest);
 };
 
 const point = (value: unknown): LatLng | null => {
@@ -75,8 +100,14 @@ export const parseOverpass = (json: unknown): MetroMap => {
     }
     const tags = element['tags'];
     const members = Array.isArray(element['members']) ? (element['members'] as unknown[]) : [];
+    // `role: 'platform'` ways are the platform edge at a station, not the
+    // running track: joining them in with the real track (role `''`) is what
+    // used to make the line double back on itself between some stations.
     const ways = members.flatMap((member) =>
-      isRecord(member) && member['type'] === 'way' && Array.isArray(member['geometry'])
+      isRecord(member) &&
+      member['type'] === 'way' &&
+      text(member['role']) === '' &&
+      Array.isArray(member['geometry'])
         ? [member['geometry'].map(point).filter((p): p is LatLng => p !== null)]
         : [],
     );
