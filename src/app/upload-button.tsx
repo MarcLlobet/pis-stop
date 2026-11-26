@@ -1,4 +1,4 @@
-import { Camera01, Image01 } from '@untitledui/icons';
+import { Camera01 } from '@untitledui/icons';
 import { FileTrigger as AriaFileTrigger } from 'react-aria-components';
 
 import { Button } from '@/components/base/buttons/button';
@@ -29,38 +29,25 @@ export const UploadButton = ({ status, onFiles, onDismiss }: UploadButtonProps) 
           </Button>
         </div>
       )}
-      <div className="pointer-events-auto flex items-center gap-3">
-        {/* A single trigger with `multiple` hides the camera option on most
-            phones, so taking a photo and picking from the gallery are two
-            separate triggers instead of one. */}
-        <AriaFileTrigger acceptedFileTypes={['image/*']} allowsMultiple onSelect={select}>
-          <Button
-            size="lg"
-            color="secondary"
-            iconLeading={Image01}
-            isDisabled={busy}
-            aria-label="Tria fotos de la galeria"
-            className="rounded-full shadow-lg"
-          />
-        </AriaFileTrigger>
-        <AriaFileTrigger
-          acceptedFileTypes={['image/*']}
-          defaultCamera="environment"
-          onSelect={select}
+      {/* No gallery picker on purpose: every photo here is of the moment,
+          taken with the camera, never an old one from the library. */}
+      <AriaFileTrigger
+        acceptedFileTypes={['image/*']}
+        defaultCamera="environment"
+        onSelect={select}
+      >
+        <Button
+          size="xl"
+          iconLeading={Camera01}
+          isLoading={busy}
+          showTextWhileLoading
+          className="pointer-events-auto rounded-full shadow-xl"
         >
-          <Button
-            size="xl"
-            iconLeading={Camera01}
-            isLoading={busy}
-            showTextWhileLoading
-            className="rounded-full shadow-xl"
-          >
-            <span aria-live="polite">
-              {busy ? `Pujant ${status.done + 1} de ${status.total}…` : 'Fes una foto'}
-            </span>
-          </Button>
-        </AriaFileTrigger>
-      </div>
+          <span aria-live="polite">
+            {busy ? `Pujant ${status.done + 1} de ${status.total}…` : 'Fes una foto'}
+          </span>
+        </Button>
+      </AriaFileTrigger>
     </div>
   );
 };

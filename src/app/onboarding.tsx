@@ -86,12 +86,13 @@ export const Onboarding = ({ eventName, onSubmit }: OnboardingProps) => {
           <Avatar size="2xl" src={preview} initials={initialOf(name)} alt="" />
           <AriaFileTrigger
             acceptedFileTypes={['image/*']}
+            defaultCamera="user"
             onSelect={(files) => {
               setAvatar(files?.[0] ?? null);
             }}
           >
             <Button color="secondary" size="md" iconLeading={Camera01}>
-              {avatar === null ? 'Tria una foto' : 'Canvia la foto'}
+              {avatar === null ? 'Fes una foto' : 'Canvia la foto'}
             </Button>
           </AriaFileTrigger>
         </div>
