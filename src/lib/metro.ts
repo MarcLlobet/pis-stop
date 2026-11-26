@@ -184,7 +184,7 @@ export const parseMetroFile = (json: unknown): MetroMap | null => {
         }
       : null;
   });
-  return parsed.every((line) => line !== null) ? { lines: parsed as readonly MetroLine[] } : null;
+  return parsed.every((line): line is MetroLine => line !== null) ? { lines: parsed } : null;
 };
 
 /** "Santa Eulàlia" matches "santa eulalia", "Sta. Eulàlia" does not: names must be written out. */

@@ -12,7 +12,7 @@ interface DecodeState {
  * https://developers.google.com/maps/documentation/utilities/polylinealgorithm
  */
 export const decodePolyline = (encoded: string): readonly LatLng[] | null => {
-  const state = [...encoded].reduce<DecodeState | null>(
+  const state = Array.from(encoded).reduce<DecodeState | null>(
     (current, char) => {
       const code = char.charCodeAt(0) - 63;
       if (current === null || code < 0 || code > 63 || current.shift > 30) {
@@ -27,7 +27,7 @@ export const decodePolyline = (encoded: string): readonly LatLng[] | null => {
     },
     { values: [], result: 0, shift: 0 },
   );
-  if (state === null || state.shift !== 0 || state.values.length % 2 !== 0) {
+  if (state?.shift !== 0 || state.values.length % 2 !== 0) {
     return null;
   }
   const pairs = state.values.flatMap((value, index, all) =>

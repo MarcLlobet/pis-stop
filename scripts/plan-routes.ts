@@ -133,9 +133,10 @@ const planWithOsm = async (
     const leg = typed[index] ?? { options: DEFAULT_OPTIONS, path: [] };
     const planned = await planLegOsm(leg, from, to, metro, osrmRouter);
     const unplanned = planned.options.filter(({ segments }) => segments.length === 0);
+    const notFound =
+      unplanned.length === 0 ? '' : ` (not found: ${unplanned.map(describe).join(', ')})`;
     console.log(
-      `${unplanned.length === 0 ? '✔' : '△'} ${from.name} → ${to.name}: ${planned.options.map(describe).join(' · ')}` +
-        (unplanned.length === 0 ? '' : ` (not found: ${unplanned.map(describe).join(', ')})`),
+      `${unplanned.length === 0 ? '✔' : '△'} ${from.name} → ${to.name}: ${planned.options.map(describe).join(' · ')}${notFound}`,
     );
     return [...done, planned];
   }, Promise.resolve([]));

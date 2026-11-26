@@ -141,7 +141,7 @@ const rawSegment = (step: unknown): RawSegment | null => {
 const mergeSteps = (segments: readonly RawSegment[]): readonly RawSegment[] =>
   segments.reduce<readonly RawSegment[]>((merged, segment) => {
     const previous = merged.at(-1);
-    return previous !== undefined && previous.mode === segment.mode && segment.mode !== 'ride'
+    return previous?.mode === segment.mode && segment.mode !== 'ride'
       ? [
           ...merged.slice(0, -1),
           {

@@ -70,7 +70,7 @@ const parseList = <T>(
     return null;
   }
   const items = value.map(parseItem);
-  return items.every((item) => item !== null) ? (items as readonly T[]) : null;
+  return items.every((item): item is T => item !== null) ? items : null;
 };
 
 const parseStep = (value: unknown): TransitStep | null =>
@@ -110,7 +110,7 @@ const parseRide = (value: unknown): Ride | null => {
     to !== null &&
     (headsign === '' || isName(headsign)) &&
     isCount(200)(stops)
-    ? { line, color, vehicle, from, to, headsign: headsign as string, stops }
+    ? { line, color, vehicle, from, to, headsign, stops }
     : null;
 };
 
@@ -203,7 +203,7 @@ export const parseMeta = (value: unknown): Meta | null => {
             kind: 'event',
             name: value.name,
             organizerKey: value.organizerKey,
-            legs: parseLegs(value['legs']) ?? [],
+            legs: parseLegs(value.legs) ?? [],
           }
         : null;
     case 'stop':
