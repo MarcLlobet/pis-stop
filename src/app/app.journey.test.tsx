@@ -38,6 +38,8 @@ vi.mock('./map-view', () => import('../test/map-stand-in'));
 vi.mock('../platform/image', () => import('../test/image-stand-in'));
 
 configure({ asyncUtilTimeout: 5_000 });
+// Real key generation, signatures and encryption on every step: give each story time.
+vi.setConfig({ testTimeout: 30_000 });
 
 /** A photo "taken with the camera": a JPEG whose bytes the test can recognise. */
 const photoFile = (marker: string): File =>
