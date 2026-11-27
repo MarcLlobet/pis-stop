@@ -34,10 +34,31 @@ interface State {
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
+const readWithFileReader = (blob: Blob): Promise<Bytes> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      const { result } = reader;
+      resolve(
+        result === null || typeof result === 'string' ? new Uint8Array(0) : new Uint8Array(result),
+      );
+    });
+    reader.addEventListener('error', () => {
+      reject(reader.error ?? new Error('Could not read the blob'));
+    });
+    reader.readAsArrayBuffer(blob);
+  });
+
+/** Node's Blob has `arrayBuffer`; under jsdom, FileReader is the reliable way. */
+export const readBlob = async (blob: Blob): Promise<Bytes> =>
+  typeof FileReader === 'undefined'
+    ? new Uint8Array(await blob.arrayBuffer())
+    : readWithFileReader(blob);
+
 const bodyBytes = async (body: RequestInit['body']): Promise<Bytes> => {
   if (body instanceof FormData) {
     const file = body.get('file');
-    return file instanceof Blob ? new Uint8Array(await file.arrayBuffer()) : new Uint8Array(0);
+    return file instanceof Blob ? readBlob(file) : new Uint8Array(0);
   }
   return typeof body === 'string' ? new TextEncoder().encode(body) : new Uint8Array(0);
 };
