@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-/* eslint-disable no-console, no-restricted-properties -- temporary debug */
 /**
  * The real app, screen by screen, in jsdom: landing, onboarding, map, upload,
  * gallery, lightbox, invites and the event list. Only what jsdom lacks is
@@ -223,26 +222,6 @@ describe('l’app, pantalla per pantalla', () => {
     const { user, event } = await juliaJoinsAndPosts();
 
     await user.click(screen.getByRole('button', { name: 'Convida' }));
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log(
-      'DEBUG',
-      JSON.stringify(
-        Array.from(document.body.children).map((child) => [
-          child.tagName,
-          child.getAttribute('aria-hidden'),
-          child.getAttribute('class')?.slice(0, 60),
-          child.querySelectorAll('[role="dialog"]').length,
-          child.innerHTML.length,
-        ]),
-      ),
-      JSON.stringify(
-        Array.from(document.querySelectorAll('[role="dialog"]')).map((dialog) => [
-          dialog.outerHTML.slice(0, 300),
-          dialog.closest('[aria-hidden="true"]')?.tagName,
-          dialog.closest('[inert]')?.tagName,
-        ]),
-      ),
-    );
     const sheet = await screen.findByRole('dialog');
     const qr = within(sheet).getByRole('img', { name: 'QR d’invitació a Correpisos 2026' });
     expect(qr).toBeInTheDocument();

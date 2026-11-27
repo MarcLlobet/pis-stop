@@ -70,108 +70,113 @@ export const EventScreen = ({
   const upload = useUpload({ repository, identity, onPhoto });
 
   return (
-    <Tabs
-      selectedKey={view}
-      onSelectionChange={(key) => {
-        setView(key === 'gallery' ? 'gallery' : 'map');
-      }}
-      className="flex h-full flex-col bg-primary"
-    >
-      <header className="flex items-center gap-2 border-b border-secondary px-4 py-2">
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold text-primary">
-          <span className="text-brand-secondary">Pis Stop</span> –{' '}
-          {snapshot.eventName ?? 'Correpisos'}
-        </h1>
-        <TabList type="button-gray" size="sm" aria-label="Vista" className="shrink-0">
-          <Tab id="map" icon={Map01} label={<span className="max-sm:sr-only">Mapa</span>} />
-          <Tab
-            id="gallery"
-            icon={Grid01}
-            label={<span className="max-sm:sr-only">Galeria</span>}
-            badge={snapshot.photos.length}
-          />
-        </TabList>
-        {live.available && (
-          <Button
-            color={live.sharing ? 'primary' : 'tertiary'}
-            size="sm"
-            iconLeading={live.sharing ? NavigationPointer01 : NavigationPointerOff01}
-            aria-label="Comparteix la meva ubicació"
-            aria-pressed={live.sharing}
-            onPress={() => {
-              live.setSharing(!live.sharing);
-            }}
-          />
-        )}
-        {invite !== null && (
+    <>
+      <Tabs
+        selectedKey={view}
+        onSelectionChange={(key) => {
+          setView(key === 'gallery' ? 'gallery' : 'map');
+        }}
+        className="flex h-full flex-col bg-primary"
+      >
+        <header className="flex items-center gap-2 border-b border-secondary px-4 py-2">
+          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold text-primary">
+            <span className="text-brand-secondary">Pis Stop</span> –{' '}
+            {snapshot.eventName ?? 'Correpisos'}
+          </h1>
+          <TabList type="button-gray" size="sm" aria-label="Vista" className="shrink-0">
+            <Tab id="map" icon={Map01} label={<span className="max-sm:sr-only">Mapa</span>} />
+            <Tab
+              id="gallery"
+              icon={Grid01}
+              label={<span className="max-sm:sr-only">Galeria</span>}
+              badge={snapshot.photos.length}
+            />
+          </TabList>
+          {live.available && (
+            <Button
+              color={live.sharing ? 'primary' : 'tertiary'}
+              size="sm"
+              iconLeading={live.sharing ? NavigationPointer01 : NavigationPointerOff01}
+              aria-label="Comparteix la meva ubicació"
+              aria-pressed={live.sharing}
+              onPress={() => {
+                live.setSharing(!live.sharing);
+              }}
+            />
+          )}
+          {invite !== null && (
+            <Button
+              color="tertiary"
+              size="sm"
+              iconLeading={QrCode01}
+              aria-label="Convida"
+              onPress={() => {
+                setPanel('invite');
+              }}
+            />
+          )}
           <Button
             color="tertiary"
             size="sm"
-            iconLeading={QrCode01}
-            aria-label="Convida"
+            iconLeading={ShieldTick}
+            aria-label="Seguretat"
             onPress={() => {
-              setPanel('invite');
+              setPanel('security');
             }}
           />
-        )}
-        <Button
-          color="tertiary"
-          size="sm"
-          iconLeading={ShieldTick}
-          aria-label="Seguretat"
-          onPress={() => {
-            setPanel('security');
-          }}
-        />
-        <Button
-          color="tertiary"
-          size="sm"
-          iconLeading={RefreshCcw02}
-          aria-label="Actualitza"
-          onPress={onReload}
-        />
-        <Button
-          color="tertiary"
-          size="sm"
-          aria-label={`Els meus events (${me.name})`}
-          onPress={() => {
-            setPanel('events');
-          }}
-          className="rounded-full p-0!"
-        >
-          <Avatar size="sm" src={me.avatarUrl} initials={initialOf(me.name)} alt="" />
-        </Button>
-      </header>
+          <Button
+            color="tertiary"
+            size="sm"
+            iconLeading={RefreshCcw02}
+            aria-label="Actualitza"
+            onPress={onReload}
+          />
+          <Button
+            color="tertiary"
+            size="sm"
+            aria-label={`Els meus events (${me.name})`}
+            onPress={() => {
+              setPanel('events');
+            }}
+            className="rounded-full p-0!"
+          >
+            <Avatar size="sm" src={me.avatarUrl} initials={initialOf(me.name)} alt="" />
+          </Button>
+        </header>
 
-      <TabPanel id="map" className="relative min-h-0 flex-1">
-        <MapView
-          snapshot={snapshot}
-          onOpenPhoto={setOpened}
-          onOpenGroup={setGroup}
-          choices={choices}
-          peers={live.peers}
-        />
-        <ItineraryPanel
-          stops={snapshot.stops}
-          legs={snapshot.legs}
-          choices={choices}
-          onChoose={(leg, option) => {
-            setChoices((current) => new Map([...current, [leg, option]]));
+        <TabPanel id="map" className="relative min-h-0 flex-1">
+          <MapView
+            snapshot={snapshot}
+            onOpenPhoto={setOpened}
+            onOpenGroup={setGroup}
+            choices={choices}
+            peers={live.peers}
+          />
+          <ItineraryPanel
+            stops={snapshot.stops}
+            legs={snapshot.legs}
+            choices={choices}
+            onChoose={(leg, option) => {
+              setChoices((current) => new Map([...current, [leg, option]]));
+            }}
+          />
+        </TabPanel>
+        <TabPanel id="gallery" className="min-h-0 flex-1 overflow-y-auto">
+          <Gallery snapshot={snapshot} onOpen={setOpened} />
+        </TabPanel>
+
+        <UploadButton
+          status={upload.status}
+          onFiles={(files) => {
+            void upload.uploadFiles(files);
           }}
+          onDismiss={upload.dismiss}
         />
-      </TabPanel>
-      <TabPanel id="gallery" className="min-h-0 flex-1 overflow-y-auto">
-        <Gallery snapshot={snapshot} onOpen={setOpened} />
-      </TabPanel>
+      </Tabs>
 
-      <UploadButton
-        status={upload.status}
-        onFiles={(files) => {
-          void upload.uploadFiles(files);
-        }}
-        onDismiss={upload.dismiss}
-      />
-
+      {/* Overlays stay outside <Tabs>: React Aria renders the content of a
+          collection twice (once hidden, to build it), and a modal in there
+          would open twice, each copy hiding the other from screen readers. */}
       {group !== null && (
         <PhotoSheet
           title="Fotos properes"
@@ -266,6 +271,6 @@ export const EventScreen = ({
           </Dialog>
         </Modal>
       </ModalOverlay>
-    </Tabs>
+    </>
   );
 };
