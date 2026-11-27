@@ -65,6 +65,14 @@ describe('parseMeta', () => {
     ['an unknown kind', { kind: 'secret' }],
     ['an event without name', { kind: 'event', name: '', organizerKey: 'k' }],
     ['an event without organizer key', { kind: 'event', name: 'x' }],
+    [
+      'an event with an unsafe upload preset',
+      { kind: 'event', name: 'x', organizerKey: 'k', uploadPreset: 'a&b' },
+    ],
+    [
+      'an event with a too long upload preset',
+      { kind: 'event', name: 'x', organizerKey: 'k', uploadPreset: 'p'.repeat(65) },
+    ],
     ['a name that is too long', { ...stop, name: 'x'.repeat(81) }],
     ['an id with unsafe characters', { ...stop, id: '../etc' }],
     ['an SVG avatar (scripts!)', { ...profile, imageType: 'image/svg+xml' }],
@@ -104,6 +112,9 @@ describe('parseLegs', () => {
   it('treats a missing itinerary as empty', () => {
     expect(parseLegs(undefined)).toEqual([]);
     expect(parseMeta({ kind: 'event', name: 'x', organizerKey: 'k' })).toMatchObject({ legs: [] });
+    expect(
+      parseMeta({ kind: 'event', name: 'x', organizerKey: 'k', uploadPreset: 'ps_abc-1' }),
+    ).toEqual({ kind: 'event', name: 'x', organizerKey: 'k', legs: [], uploadPreset: 'ps_abc-1' });
   });
 
   it.each([

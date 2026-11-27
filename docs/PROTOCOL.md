@@ -49,10 +49,11 @@ aes  = HKDF(secret, salt, info = "aes-gcm", 32 bytes)  → AES-256-GCM key, non-
 ```
 
 `tag` is the Cloudinary tag that lists the event's entries. It reveals nothing about `aes`.
-After derivation, the app keeps `{ tag, aes, organizer fingerprint }` in IndexedDB, and, separately,
-the invite `{ secret, organizer }` so that a member can show the invite QR to someone else. On load,
-the stored invite is used only if it derives the stored `tag` for the stored organizer. Leaving the
-event deletes both.
+After derivation, the app keeps a list of joined events in IndexedDB, the last opened first. Each
+item is `{ keys: { tag, aes, organizer fingerprint }, invite: { secret, organizer } | null, name }`:
+the invite lets a member show the invite QR to someone else, and the name is only for the list. On
+load, a stored invite is used only if it derives the stored `tag` for the stored organizer. Leaving
+an event removes its item; the others stay.
 
 ## 4. Sealed blobs
 
@@ -86,10 +87,15 @@ Entries are uploaded with the tag. `meta` is one of:
 
 | `kind`    | Fields                                                                                                   | Payload              | Signed by                     |
 | --------- | -------------------------------------------------------------------------------------------------------- | -------------------- | ----------------------------- |
-| `event`   | `name`, `organizerKey` (b64url raw P-256), `legs` (§5.1)                                                 | empty                | organizer key                 |
+| `event`   | `name`, `organizerKey` (b64url raw P-256), `legs` (§5.1), optional `uploadPreset`                        | empty                | organizer key                 |
 | `stop`    | `id`, `name`, `order`, `position {lat,lng}`                                                              | empty                | organizer key                 |
 | `profile` | `id`, `publicKey`, `name`, `email`, `imageType`, `createdAt`                                             | JPEG avatar or empty | the profile's own `publicKey` |
 | `photo`   | `id`, `authorId`, `position \| null`, `takenAt`, `fullUrl`, `fullSha256`, `imageType`, `width`, `height` | JPEG thumbnail       | the author's profile key      |
+
+`uploadPreset` (at most 64 characters of `[A-Za-z0-9_-]`) names this event's own Cloudinary upload
+preset. Clients upload with the preset of the most recent valid `event` entry and fall back to the
+build's default preset when it is missing. Being inside the encrypted entry, the name is known only
+to the group; deleting the preset closes this event alone.
 
 ### 5.1 Itinerary
 

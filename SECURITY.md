@@ -173,14 +173,17 @@ Cap sistema és perfecte. Aquests són els límits coneguts, sense maquillatge.
 **Sobre el grup**
 
 1. **Qui té el QR ho té tot.** Pot veure totes les fotos i, mentre el preset de pujada existeixi,
-   penjar-ne. No hi ha manera d’expulsar algú: caldria crear un event nou.
+   penjar-ne. No hi ha manera d’expulsar algú: caldria crear un event nou. Cada event és
+   independent: el QR d’un no dona accés a cap altre, ni revela que existeixi.
 2. **Una captura del QR funciona per sempre, i qualsevol del grup la pot reenviar.** Si l’enllaç
    es reenvia, qui el rebi entra. El botó **Convida** ho fa més fàcil, però no ho fa possible: qui
    tenia el QR ja el podia reenviar.
 3. **No hi ha secret cap endavant.** Si la clau es filtra demà, totes les fotos d’avui es poden
    llegir.
 4. **Un membre pot omplir l’event de fotos** (seves), fins als límits de mida. No pot fer-ho en
-   nom d’un altre.
+   nom d’un altre. Amb el preset compartit, que és públic perquè va dins la web, fins i tot algú
+   de fora del grup pot pujar-hi fitxers: l’app els descarta, però ocupen quota. Amb un preset
+   propi per event (`pnpm event:create` amb les claus de l’API), el nom només el sap el grup.
 5. **Ningú pot impedir que algú faci una captura de pantalla** d’una foto.
 
 **Sobre els servidors**

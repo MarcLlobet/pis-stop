@@ -136,6 +136,17 @@ describe('createCloudinaryClient', () => {
     expect(body.get('file')).toBeInstanceOf(Blob);
   });
 
+  it('uploads with the event preset when given one, and refuses unsafe names', async () => {
+    const fetchFn = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(json({ secure_url: own })),
+    );
+    const client = createCloudinaryClient(config, fetchFn);
+    await client.upload(Uint8Array.of(1), [], 'ps_event');
+    expect((fetchFn.mock.calls[0]![1]?.body as FormData).get('upload_preset')).toBe('ps_event');
+    await expect(client.upload(Uint8Array.of(1), [], 'a&b')).rejects.toThrow('preset');
+    expect(fetchFn).toHaveBeenCalledOnce();
+  });
+
   it('omits tags when there are none', async () => {
     const fetchFn = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(() =>
       Promise.resolve(json({ secure_url: own })),

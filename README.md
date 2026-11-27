@@ -119,10 +119,24 @@ pnpm event:create event.json
 Surten l’enllaç d’invitació, el QR i `out/<event>.keys.json`. Guarda aquest últim fora de línia.
 Per afegir pisos més tard: `pnpm event:create mes-pisos.json --keys out/<event>.keys.json`.
 
+Pots fer tants events com vulguis amb la mateixa web: cada un té la seva clau, i des d’un no es
+pot veure ni saber res d’un altre. Al mòbil, **Els meus events** (l’avatar de dalt) els llista i
+permet canviar-ne o afegir-ne un altre.
+
+Amb `CLOUDINARY_API_KEY` i `CLOUDINARY_API_SECRET` a `.env` (Cloudinary → **Settings → API
+Keys**; són secrets, només per al teu ordinador), cada event té el seu propi upload preset, amb un
+nom aleatori que només viatja xifrat dins l’event. Així ningú de fora del grup hi pot pujar res, i
+cada event es tanca per separat.
+
 ### 7. Tancar l’event
 
-Esborra l’upload preset a Cloudinary. Les fotos es continuen veient, però ja no se’n poden
-penjar més.
+```sh
+pnpm event:close --keys out/<event>.keys.json
+```
+
+Esborra el preset de l’event: les fotos es continuen veient, però ja no se’n poden penjar més. Els
+altres events no canvien. Un event creat sense les claus de l’API fa servir el preset compartit
+(`VITE_CLOUDINARY_UPLOAD_PRESET`): esborrar-lo a Cloudinary els tanca tots alhora.
 
 ## Desenvolupament
 

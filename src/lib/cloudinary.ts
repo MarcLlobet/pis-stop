@@ -2,6 +2,7 @@ import type { Bytes } from './types';
 
 export interface CloudinaryConfig {
   readonly cloudName: string;
+  /** The default preset, for events that do not name their own. */
   readonly uploadPreset: string;
 }
 
@@ -15,8 +16,8 @@ export interface CloudinaryClient {
   readonly list: (tag: string) => Promise<readonly string[]>;
   /** Refuses URLs outside this account and responses larger than `maxBytes`. */
   readonly download: (url: string, maxBytes: number) => Promise<Bytes>;
-  /** Uploads opaque bytes and resolves with their delivery URL. */
-  readonly upload: (bytes: Bytes, tags: readonly string[]) => Promise<string>;
+  /** Uploads opaque bytes (with `preset`, or the default one) and resolves with their URL. */
+  readonly upload: (bytes: Bytes, tags: readonly string[], preset?: string) => Promise<string>;
   readonly owns: (url: string) => boolean;
 }
 
@@ -130,10 +131,13 @@ export const createCloudinaryClient = (
       }
       return bytes;
     },
-    upload: async (bytes, tags) => {
+    upload: async (bytes, tags, preset = config.uploadPreset) => {
       const body = new FormData();
       body.append('file', new Blob([bytes], { type: 'application/octet-stream' }));
-      body.append('upload_preset', config.uploadPreset);
+      if (!isValidName(preset)) {
+        throw new Error('Invalid upload preset name');
+      }
+      body.append('upload_preset', preset);
       if (tags.length > 0) {
         body.append('tags', tags.join(','));
       }

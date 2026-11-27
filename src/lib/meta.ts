@@ -1,3 +1,4 @@
+import { isValidName } from './cloudinary';
 import type {
   EventInfo,
   LatLng,
@@ -159,8 +160,14 @@ const parseLeg = (value: unknown): Leg | null => {
 export const parseLegs = (value: unknown): readonly Leg[] | null =>
   value === undefined ? [] : parseList(value, 50, parseLeg);
 
+const isPresetName = (value: unknown): boolean =>
+  value === undefined || (isString(value) && value.length <= 64 && isValidName(value));
+
 const isEventInfo = (value: Fields): value is EventInfo & Fields =>
-  isName(value['name']) && isBase64Url(value['organizerKey']) && parseLegs(value['legs']) !== null;
+  isName(value['name']) &&
+  isBase64Url(value['organizerKey']) &&
+  parseLegs(value['legs']) !== null &&
+  isPresetName(value['uploadPreset']);
 
 const isStop = (value: Fields): value is Stop & Fields =>
   isId(value['id']) &&
@@ -204,6 +211,7 @@ export const parseMeta = (value: unknown): Meta | null => {
             name: value.name,
             organizerKey: value.organizerKey,
             legs: parseLegs(value.legs) ?? [],
+            ...(value.uploadPreset === undefined ? {} : { uploadPreset: value.uploadPreset }),
           }
         : null;
     case 'stop':

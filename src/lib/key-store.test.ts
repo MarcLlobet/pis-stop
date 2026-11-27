@@ -2,29 +2,24 @@ import { describe, expect, it } from 'vitest';
 
 import { deriveEventKeys, generateSecret } from './crypto';
 import { generateIdentity } from './identity';
-import { asEventKeys, asIdentity, asInvite, createMemoryKeyStore } from './key-store';
+import {
+  asEventKeys,
+  asIdentity,
+  asInvite,
+  asSavedEvents,
+  createMemoryKeyStore,
+  fromSingleEvent,
+} from './key-store';
 
 const organizer = 'DtOmq5V_9vWaljCkc9MafQ';
 
 describe('createMemoryKeyStore', () => {
-  it('saves, loads and forgets the event keys', async () => {
+  it('saves and loads the event list', async () => {
     const store = createMemoryKeyStore();
     const keys = await deriveEventKeys(generateSecret(), 'org');
-    expect(await store.loadEvent()).toBeNull();
-    await store.saveEvent(keys);
-    expect(await store.loadEvent()).toBe(keys);
-    await store.forgetEvent();
-    expect(await store.loadEvent()).toBeNull();
-  });
-
-  it('keeps the invite until the event is forgotten', async () => {
-    const store = createMemoryKeyStore();
-    const invite = { secret: generateSecret(), organizer };
-    expect(await store.loadInvite()).toBeNull();
-    await store.saveInvite(invite);
-    expect(await store.loadInvite()).toBe(invite);
-    await store.forgetEvent();
-    expect(await store.loadInvite()).toBeNull();
+    expect(await store.loadEvents()).toEqual([]);
+    await store.saveEvents([{ keys, invite: null, name: 'Correpisos' }]);
+    expect(await store.loadEvents()).toEqual([{ keys, invite: null, name: 'Correpisos' }]);
   });
 
   it('keeps one identity per event', async () => {
@@ -68,5 +63,34 @@ describe('stored value validation', () => {
     ['a missing organizer', { secret: new Uint8Array(32) }],
   ])('rejects an invite with %s', (_, value) => {
     expect(asInvite(value)).toBeNull();
+  });
+});
+
+describe('stored event list', () => {
+  it('keeps well-formed events, drops the rest and duplicates', async () => {
+    const keys = await deriveEventKeys(generateSecret(), 'org');
+    const other = await deriveEventKeys(generateSecret(), 'org');
+    const invite = { secret: generateSecret(), organizer };
+    expect(
+      asSavedEvents([
+        { keys, invite, name: 'Correpisos' },
+        { keys, invite: null, name: 'Duplicate' },
+        { keys: other, invite: 'broken', name: 'x'.repeat(81) },
+        { keys: { tag: 'a' } },
+        null,
+      ]),
+    ).toEqual([
+      { keys, invite, name: 'Correpisos' },
+      { keys: other, invite: null, name: null },
+    ]);
+    expect(asSavedEvents('not a list')).toEqual([]);
+  });
+
+  it('reads what devices kept before there was a list', async () => {
+    const keys = await deriveEventKeys(generateSecret(), 'org');
+    const invite = { secret: generateSecret(), organizer };
+    expect(fromSingleEvent(keys, invite)).toEqual([{ keys, invite, name: null }]);
+    expect(fromSingleEvent(keys, undefined)).toEqual([{ keys, invite: null, name: null }]);
+    expect(fromSingleEvent(undefined, invite)).toEqual([]);
   });
 });

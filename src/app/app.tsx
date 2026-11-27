@@ -8,6 +8,7 @@ import { type AblyConfig, parseAblyConfig, parseCloudinaryConfig } from '../lib/
 import { browserKeyStore, clearLocationHash, readLocationHash } from '../platform/browser';
 import { canScanQr } from '../platform/qr-scanner';
 import { EventApp, type EventSource } from './event-app';
+import type { EventSwitcher } from './events-sheet';
 import { Landing } from './landing';
 
 const cloudinary = parseCloudinaryConfig(import.meta.env);
@@ -41,7 +42,7 @@ const toSource = (
 };
 
 export const App = () => {
-  const { session, startDemo, join, leave } = useSession(
+  const { session, events, startDemo, join, switchTo, leave, rememberName } = useSession(
     browserKeyStore,
     readLocationHash,
     clearLocationHash,
@@ -49,6 +50,16 @@ export const App = () => {
     import.meta.env.DEV ? 'demo' : 'landing',
   );
   const source = useMemo(() => toSource(session, cloudinary, ably), [session]);
+  const switcher = useMemo<EventSwitcher>(
+    () => ({
+      events,
+      current: session.kind === 'event' ? session.keys.tag : null,
+      canScan: canScanQr(),
+      onSwitch: switchTo,
+      onJoin: join,
+    }),
+    [events, session, switchTo, join],
+  );
 
   if (session.kind === 'resolving') {
     return (
@@ -61,12 +72,21 @@ export const App = () => {
     return (
       <Landing
         onJoin={join}
-        canScan={canScanQr()}
+        canScan={switcher.canScan}
         // A deployment without a photo account is a demo; a real one shows nothing without an event.
         {...(cloudinary === null ? { onDemo: startDemo } : {})}
         {...(session.kind === 'event' ? { notice: NO_ACCOUNT } : {})}
       />
     );
   }
-  return <EventApp source={source} onLeave={leave} />;
+  return (
+    <EventApp
+      // A new event is a new app: identity, data and live location start over.
+      key={source.kind === 'event' ? source.keys.tag : 'demo'}
+      source={source}
+      onLeave={leave}
+      switcher={switcher}
+      onEventName={rememberName}
+    />
+  );
 };

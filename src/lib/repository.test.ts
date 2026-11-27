@@ -19,6 +19,7 @@ interface StoredFile {
   readonly url: string;
   readonly bytes: Bytes;
   readonly tags: readonly string[];
+  readonly preset: unknown;
 }
 
 const CLOUD = { cloudName: 'test', uploadPreset: 'preset' };
@@ -40,6 +41,7 @@ const createFakeCloud = () => {
         url: `${base}${state.files.length}`,
         bytes: new Uint8Array(await file.arrayBuffer()),
         tags: typeof tags === 'string' ? tags.split(',').filter(Boolean) : [],
+        preset: body.get('upload_preset'),
       };
       // eslint-disable-next-line functional/immutable-data -- test double
       state.files = [...state.files, stored];
@@ -99,6 +101,37 @@ const join = (repository: ReturnType<typeof createCloudinaryRepository>, me: Ide
   repository.publishProfile(me, { name: ' Júlia ', email: 'j@x.cat', avatar: image(9) });
 
 describe('createCloudinaryRepository', () => {
+  it('uploads with the preset the organizer signed into the event', async () => {
+    const { repository, files, keys, organizer, client, me } = await setup();
+    await repository.load();
+    await join(repository, me);
+    expect(files().at(-1)?.preset).toBe('preset');
+
+    await publishEntry(
+      client,
+      keys,
+      {
+        meta: {
+          kind: 'event',
+          name: 'Correpisos',
+          organizerKey: organizer.publicKey,
+          legs: [],
+          uploadPreset: 'ps_event_preset',
+        },
+        payload: new Uint8Array(0),
+      },
+      organizer.privateKey,
+      'ps_event_preset',
+    );
+    expect((await repository.load()).uploadPreset).toBe('ps_event_preset');
+    await repository.publishPhoto(me, newPhoto);
+    expect(
+      files()
+        .slice(-2)
+        .map(({ preset }) => preset),
+    ).toEqual(['ps_event_preset', 'ps_event_preset']);
+  });
+
   it('loads the event published by the organizer', async () => {
     const { repository } = await setup();
     const snapshot = await repository.load();

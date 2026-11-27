@@ -10,6 +10,8 @@ export interface PhotoView extends Photo {
 
 export interface Snapshot {
   readonly eventName: string | null;
+  /** Where to upload in this event (signed by the organizer); `null` for the app default. */
+  readonly uploadPreset: string | null;
   readonly legs: readonly Leg[];
   readonly stops: readonly Stop[];
   readonly profiles: ReadonlyMap<string, ProfileView>;
@@ -21,6 +23,7 @@ export type ToImageUrl = (bytes: Bytes, type: string) => string;
 
 export const EMPTY_SNAPSHOT: Snapshot = {
   eventName: null,
+  uploadPreset: null,
   legs: [],
   stops: [],
   profiles: new Map(),
@@ -60,6 +63,7 @@ export const buildSnapshot = (entries: readonly Entry[], toUrl: ToImageUrl): Sna
   );
   return {
     eventName: events.at(-1)?.name ?? null,
+    uploadPreset: events.at(-1)?.uploadPreset ?? null,
     legs: events.at(-1)?.legs ?? [],
     stops: entries
       .filter(isKind('stop'))

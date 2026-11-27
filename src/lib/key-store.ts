@@ -7,17 +7,22 @@ import { type Invite, isFingerprint } from './invite';
  * store CryptoKey objects as they are: non-extractable keys stay
  * non-extractable, so page scripts can use them but can never read them out.
  */
-export interface KeyStore {
-  readonly loadEvent: () => Promise<EventKeys | null>;
-  readonly saveEvent: (keys: EventKeys) => Promise<void>;
+/** One event this device has joined. */
+export interface SavedEvent {
+  readonly keys: EventKeys;
   /**
    * The invite itself (the group secret), kept so this device can show the
-   * QR to someone else. Unlike `aes`, it is readable by the page.
+   * QR to someone else. Unlike `keys.aes`, it is readable by the page.
    */
-  readonly loadInvite: () => Promise<Invite | null>;
-  readonly saveInvite: (invite: Invite) => Promise<void>;
-  /** Forgets the event keys and the invite. */
-  readonly forgetEvent: () => Promise<void>;
+  readonly invite: Invite | null;
+  /** The event's name, remembered for the event list; `null` until first loaded. */
+  readonly name: string | null;
+}
+
+export interface KeyStore {
+  /** Every joined event, the most recently opened first. */
+  readonly loadEvents: () => Promise<readonly SavedEvent[]>;
+  readonly saveEvents: (events: readonly SavedEvent[]) => Promise<void>;
   /** One identity per event, so profiles cannot be linked across groups. */
   readonly loadIdentity: (scope: string) => Promise<Identity | null>;
   readonly saveIdentity: (scope: string, identity: Identity) => Promise<void>;
@@ -47,6 +52,36 @@ export const asInvite = (value: unknown): Invite | null =>
     ? { secret: new Uint8Array(value['secret']), organizer: value['organizer'] }
     : null;
 
+const NAME_LENGTH = 80;
+
+const asName = (value: unknown): string | null =>
+  typeof value === 'string' && value.length <= NAME_LENGTH ? value : null;
+
+const asSavedEvent = (value: unknown): SavedEvent | null => {
+  const keys = isRecord(value) ? asEventKeys(value['keys']) : null;
+  return isRecord(value) && keys !== null
+    ? { keys, invite: asInvite(value['invite']), name: asName(value['name']) }
+    : null;
+};
+
+/** The stored event list, minus anything malformed and duplicated events. */
+export const asSavedEvents = (value: unknown): readonly SavedEvent[] =>
+  Array.isArray(value)
+    ? value
+        .map(asSavedEvent)
+        .filter((event): event is SavedEvent => event !== null)
+        .filter(
+          (event, index, all) =>
+            all.findIndex((other) => other.keys.tag === event.keys.tag) === index,
+        )
+    : [];
+
+/** Devices that joined before the event list existed kept one event and one invite. */
+export const fromSingleEvent = (event: unknown, invite: unknown): readonly SavedEvent[] => {
+  const keys = asEventKeys(event);
+  return keys === null ? [] : [{ keys, invite: asInvite(invite), name: null }];
+};
+
 export const asIdentity = (value: unknown): Identity | null =>
   isRecord(value) &&
   typeof value['id'] === 'string' &&
@@ -61,25 +96,14 @@ export const asIdentity = (value: unknown): Identity | null =>
  */
 export const createMemoryKeyStore = (): KeyStore => {
   const state: {
-    event: EventKeys | null;
-    invite: Invite | null;
+    events: readonly SavedEvent[];
     identities: ReadonlyMap<string, Identity>;
-  } = { event: null, invite: null, identities: new Map() };
+  } = { events: [], identities: new Map() };
   /* eslint-disable functional/immutable-data -- the single mutable cell of this store */
   return {
-    loadEvent: () => Promise.resolve(state.event),
-    saveEvent: (keys) => {
-      state.event = keys;
-      return Promise.resolve();
-    },
-    loadInvite: () => Promise.resolve(state.invite),
-    saveInvite: (invite) => {
-      state.invite = invite;
-      return Promise.resolve();
-    },
-    forgetEvent: () => {
-      state.event = null;
-      state.invite = null;
+    loadEvents: () => Promise.resolve(state.events),
+    saveEvents: (events) => {
+      state.events = events;
       return Promise.resolve();
     },
     loadIdentity: (scope) => Promise.resolve(state.identities.get(scope) ?? null),

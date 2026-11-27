@@ -1,5 +1,5 @@
 import { AlertCircle } from '@untitledui/icons';
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useEffect, useMemo } from 'react';
 
 import { LoadingIndicator } from '@/components/application/loading-indicator/loading-indicator';
 import { Button } from '@/components/base/buttons/button';
@@ -20,6 +20,7 @@ import { createCloudinaryRepository } from '../lib/repository';
 import { browserDeps, browserKeyStore } from '../platform/browser';
 import { encodeImage } from '../platform/image';
 import { EventScreen } from './event-screen';
+import type { EventSwitcher } from './events-sheet';
 import { InstallHint } from './install-hint';
 import { Onboarding, type OnboardingValues } from './onboarding';
 
@@ -38,6 +39,9 @@ export type EventSource =
 interface EventAppProps {
   readonly source: EventSource;
   readonly onLeave: () => void;
+  readonly switcher: EventSwitcher;
+  /** Called with the event's name once it is known, for the event list. */
+  readonly onEventName: (name: string) => void;
 }
 
 const Centered = ({ children }: { readonly children: ReactNode }) => (
@@ -49,7 +53,7 @@ const Centered = ({ children }: { readonly children: ReactNode }) => (
 /** In development the demo skips onboarding: you land on the map with a profile. */
 const DEV_PROFILE_NAME = 'Tu (dev)';
 
-export const EventApp = ({ source, onLeave }: EventAppProps) => {
+export const EventApp = ({ source, onLeave, switcher, onEventName }: EventAppProps) => {
   const autoProfile = source.kind === 'demo' && import.meta.env.DEV;
   const scope = source.kind === 'demo' ? 'demo' : source.keys.tag;
   const identity = useIdentity(browserKeyStore, scope, { autoCreate: autoProfile });
@@ -90,6 +94,13 @@ export const EventApp = ({ source, onLeave }: EventAppProps) => {
     identity: mine,
     profiles: state.status === 'ready' ? state.snapshot.profiles : null,
   });
+
+  const eventName = state.status === 'ready' ? state.snapshot.eventName : null;
+  useEffect(() => {
+    if (eventName !== null) {
+      onEventName(eventName);
+    }
+  }, [eventName, onEventName]);
 
   if (repository === null || state.status === 'loading' || identity.state.status === 'loading') {
     return (
@@ -146,6 +157,7 @@ export const EventApp = ({ source, onLeave }: EventAppProps) => {
       onLeave={onLeave}
       live={live}
       invite={source.kind === 'event' ? source.invite : null}
+      switcher={switcher}
     />
   );
 };

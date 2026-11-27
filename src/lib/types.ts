@@ -72,6 +72,12 @@ export interface EventInfo {
   readonly organizerKey: string;
   /** Leg N goes from the stop with order N + 1 to the next one. */
   readonly legs: readonly Leg[];
+  /**
+   * This event's own Cloudinary upload preset. Its name only travels inside
+   * this encrypted entry, so nobody outside the group can upload with it, and
+   * deleting it closes this event alone. Missing on older events.
+   */
+  readonly uploadPreset?: string;
 }
 
 /** Signed by the organizer. */

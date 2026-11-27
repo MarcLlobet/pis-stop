@@ -23,6 +23,7 @@ import type { Identity } from '../lib/identity';
 import { buildInviteUrl, type Invite } from '../lib/invite';
 import type { EventRepository } from '../lib/repository';
 import type { PhotoView, ProfileView, Snapshot } from '../lib/snapshot';
+import { EventsSheet, type EventSwitcher } from './events-sheet';
 import { Gallery } from './gallery';
 import { InviteSheet } from './invite-sheet';
 import { ItineraryPanel } from './itinerary-panel';
@@ -43,6 +44,7 @@ interface EventScreenProps {
   readonly live: LiveLocationState;
   /** Shown as a QR to bring someone else in; `null` hides the button. */
   readonly invite: Invite | null;
+  readonly switcher: EventSwitcher;
 }
 
 type View = 'map' | 'gallery';
@@ -57,13 +59,14 @@ export const EventScreen = ({
   onLeave,
   live,
   invite,
+  switcher,
 }: EventScreenProps) => {
   const [view, setView] = useState<View>('map');
   const [opened, setOpened] = useState<PhotoView | null>(null);
   const [group, setGroup] = useState<readonly PhotoView[] | null>(null);
   /** Which way to go for each leg (leg index → option index). */
   const [choices, setChoices] = useState<ReadonlyMap<number, number>>(new Map());
-  const [panel, setPanel] = useState<'invite' | 'security' | 'leave' | null>(null);
+  const [panel, setPanel] = useState<'events' | 'invite' | 'security' | 'leave' | null>(null);
   const upload = useUpload({ repository, identity, onPhoto });
 
   return (
@@ -130,9 +133,9 @@ export const EventScreen = ({
         <Button
           color="tertiary"
           size="sm"
-          aria-label={`Surt (${me.name})`}
+          aria-label={`Els meus events (${me.name})`}
           onPress={() => {
-            setPanel('leave');
+            setPanel('events');
           }}
           className="rounded-full p-0!"
         >
@@ -194,6 +197,18 @@ export const EventScreen = ({
         />
       )}
 
+      {panel === 'events' && (
+        <EventsSheet
+          switcher={switcher}
+          onLeave={() => {
+            setPanel('leave');
+          }}
+          onClose={() => {
+            setPanel(null);
+          }}
+        />
+      )}
+
       {panel === 'invite' && invite !== null && (
         <InviteSheet
           eventName={snapshot.eventName}
@@ -226,11 +241,12 @@ export const EventScreen = ({
             {({ close }) => (
               <>
                 <AriaHeading slot="title" className="text-lg font-semibold text-primary">
-                  Vols sortir del correpisos?
+                  Vols sortir d’aquest event?
                 </AriaHeading>
                 <p className="text-sm text-tertiary">
-                  Aquest mòbil oblidarà la clau del grup. Per tornar a entrar necessitaràs el QR. La
-                  teva identitat es manté, així que tornaràs a ser tu.
+                  Aquest mòbil oblidarà la clau del grup i deixarà l’event fora de la llista. Per
+                  tornar a entrar necessitaràs el QR. La teva identitat es manté, així que tornaràs
+                  a ser tu. Els altres events no canvien.
                 </p>
                 <div className="flex gap-3">
                   <Button color="secondary" className="flex-1" onPress={close}>

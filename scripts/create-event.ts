@@ -7,6 +7,9 @@
  * The organizer's signing key and the group secret are written to
  * out/<event>.keys.json (mode 600). Keep that file offline: whoever holds it
  * can add stops in your name and read every photo.
+ *
+ * With CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in .env, the event also
+ * gets its own upload preset, so `pnpm event:close` can close it alone.
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -14,7 +17,13 @@ import { parseArgs } from 'node:util';
 
 import QRCode from 'qrcode';
 
-import { createCloudinaryClient } from '../src/lib/cloudinary';
+import { createCloudinaryClient, isValidName } from '../src/lib/cloudinary';
+import {
+  type AdminCredentials,
+  createPresetRequest,
+  parseAdminCredentials,
+  presetName,
+} from '../src/lib/cloudinary-admin';
 import { parseCloudinaryConfig } from '../src/lib/config';
 import { deriveEventKeys, generateSecret, SECRET_BYTES } from '../src/lib/crypto';
 import { fromBase64Url, safeJsonParse, toBase64Url } from '../src/lib/encoding';
@@ -28,6 +37,8 @@ interface Organizer {
   readonly secret: Bytes;
   readonly publicKey: string;
   readonly privateKey: CryptoKey;
+  /** This event's own upload preset; `null` when it uses the shared default. */
+  readonly uploadPreset: string | null;
 }
 
 const SIGNING = { name: 'ECDSA', namedCurve: 'P-256' } as const;
@@ -40,17 +51,47 @@ const fail = (message: string): never => {
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null;
 
-const toEntries = (event: EventFile, organizerKey: string): readonly Entry[] => [
+const toEntries = (
+  event: EventFile,
+  organizerKey: string,
+  uploadPreset: string | null,
+): readonly Entry[] => [
   {
-    meta: { kind: 'event', name: event.name.trim(), organizerKey, legs: event.legs },
+    meta: {
+      kind: 'event',
+      name: event.name.trim(),
+      organizerKey,
+      legs: event.legs,
+      ...(uploadPreset === null ? {} : { uploadPreset }),
+    },
     payload: new Uint8Array(0),
   },
   ...stopsOf(event).map((meta): Entry => ({ meta, payload: new Uint8Array(0) })),
 ];
 
-const newOrganizer = async (): Promise<Organizer> => {
+const createPreset = async (credentials: AdminCredentials): Promise<string> => {
+  const name = presetName(crypto.getRandomValues(new Uint8Array(16)));
+  const { url, init } = createPresetRequest(credentials, name);
+  const response = await fetch(url, init);
+  if (!response.ok) {
+    return fail(`Cloudinary refused to create the upload preset (${String(response.status)})`);
+  }
+  return name;
+};
+
+const newOrganizer = async (credentials: AdminCredentials | null): Promise<Organizer> => {
   const identity = await generateIdentity(true);
-  return { secret: generateSecret(), ...identity };
+  if (credentials === null) {
+    console.warn(
+      '⚠ No CLOUDINARY_API_KEY/CLOUDINARY_API_SECRET: this event uses the shared upload preset,\n' +
+        '  so closing it (deleting that preset) closes every event that shares it.',
+    );
+  }
+  return {
+    secret: generateSecret(),
+    ...identity,
+    uploadPreset: credentials === null ? null : await createPreset(credentials),
+  };
 };
 
 const loadOrganizer = async (path: string): Promise<Organizer> => {
@@ -60,7 +101,14 @@ const loadOrganizer = async (path: string): Promise<Organizer> => {
   }
   const secret = fromBase64Url(saved['secret']);
   const publicKey = saved['publicKey'];
-  if (secret?.length !== SECRET_BYTES || typeof publicKey !== 'string') {
+  const savedPreset = saved['uploadPreset'] ?? null;
+  const uploadPreset =
+    typeof savedPreset === 'string' && isValidName(savedPreset) ? savedPreset : null;
+  if (
+    secret?.length !== SECRET_BYTES ||
+    typeof publicKey !== 'string' ||
+    (savedPreset !== null && uploadPreset === null)
+  ) {
     return fail(`${path} is corrupted`);
   }
   const privateKey = await crypto.subtle.importKey(
@@ -70,13 +118,18 @@ const loadOrganizer = async (path: string): Promise<Organizer> => {
     false,
     ['sign'],
   );
-  return { secret, publicKey, privateKey };
+  return { secret, publicKey, privateKey, uploadPreset };
 };
 
 const saveOrganizer = async (path: string, organizer: Organizer): Promise<void> => {
   const privateKey = await crypto.subtle.exportKey('jwk', organizer.privateKey);
   const contents = JSON.stringify(
-    { secret: toBase64Url(organizer.secret), publicKey: organizer.publicKey, privateKey },
+    {
+      secret: toBase64Url(organizer.secret),
+      publicKey: organizer.publicKey,
+      privateKey,
+      uploadPreset: organizer.uploadPreset,
+    },
     null,
     2,
   );
@@ -106,7 +159,9 @@ const main = async (): Promise<void> => {
   const appUrl = values.url ?? process.env['APP_URL'] ?? fail('Set APP_URL or pass --url');
 
   const organizer =
-    values.keys === undefined ? await newOrganizer() : await loadOrganizer(values.keys);
+    values.keys === undefined
+      ? await newOrganizer(parseAdminCredentials(process.env))
+      : await loadOrganizer(values.keys);
   const organizerId =
     (await fingerprintOf(organizer.publicKey)) ?? fail('Invalid organizer public key');
   const keys = await deriveEventKeys(organizer.secret, organizerId);
@@ -120,11 +175,20 @@ const main = async (): Promise<void> => {
     await saveOrganizer(join(outDir, `${slug}.keys.json`), organizer);
   }
 
-  await toEntries(event, organizer.publicKey).reduce(async (previous, entry) => {
-    await previous;
-    await publishEntry(client, keys, entry, organizer.privateKey);
-    console.log(`✔ ${entry.meta.kind === 'stop' ? entry.meta.name : 'event info'} (signed)`);
-  }, Promise.resolve());
+  await toEntries(event, organizer.publicKey, organizer.uploadPreset).reduce(
+    async (previous, entry) => {
+      await previous;
+      await publishEntry(
+        client,
+        keys,
+        entry,
+        organizer.privateKey,
+        organizer.uploadPreset ?? undefined,
+      );
+      console.log(`✔ ${entry.meta.kind === 'stop' ? entry.meta.name : 'event info'} (signed)`);
+    },
+    Promise.resolve(),
+  );
 
   const invite = buildInviteUrl(appUrl, { secret: organizer.secret, organizer: organizerId });
   const qrPath = join(outDir, `${slug}-invite.svg`);
@@ -133,6 +197,11 @@ const main = async (): Promise<void> => {
   console.log(`\nInvite link (share only with the group):\n${invite}\n`);
   console.log(`QR code:          ${qrPath}`);
   console.log(`Organizer keys:   ${join(outDir, `${slug}.keys.json`)} (keep it offline)`);
+  console.log(
+    organizer.uploadPreset === null
+      ? 'Upload preset:    the shared default'
+      : `Upload preset:    ${organizer.uploadPreset} (close with pnpm event:close --keys …)`,
+  );
 };
 
 await main();

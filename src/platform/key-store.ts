@@ -1,16 +1,18 @@
 import {
-  asEventKeys,
   asIdentity,
-  asInvite,
+  asSavedEvents,
   createMemoryKeyStore,
+  fromSingleEvent,
   type KeyStore,
 } from '../lib/key-store';
 
 const DATABASE = 'pis-stop';
 const STORE = 'keys';
 const VERSION = 1;
-const EVENT_KEY = 'event';
-const INVITE_KEY = 'invite';
+const EVENTS_KEY = 'events';
+/** Before the event list: one event and its invite. Read once, then replaced. */
+const LEGACY_EVENT_KEY = 'event';
+const LEGACY_INVITE_KEY = 'invite';
 const identityKey = (scope: string): string => `identity:${scope}`;
 
 const settle = <T>(request: IDBRequest<T>): Promise<T> =>
@@ -46,15 +48,26 @@ const run = async <T>(
 const ignoreResult = (): void => undefined;
 
 export const createIndexedDbKeyStore = (): KeyStore => ({
-  loadEvent: async () => asEventKeys(await run('readonly', (store) => store.get(EVENT_KEY))),
-  saveEvent: (keys) => run('readwrite', (store) => store.put(keys, EVENT_KEY)).then(ignoreResult),
-  loadInvite: async () => asInvite(await run('readonly', (store) => store.get(INVITE_KEY))),
-  saveInvite: (invite) =>
-    run('readwrite', (store) => store.put(invite, INVITE_KEY)).then(ignoreResult),
-  forgetEvent: () =>
-    Promise.all(
-      [EVENT_KEY, INVITE_KEY].map((key) => run('readwrite', (store) => store.delete(key))),
-    ).then(ignoreResult),
+  loadEvents: async () => {
+    const events: unknown = await run('readonly', (store) => store.get(EVENTS_KEY));
+    if (events !== undefined) {
+      return asSavedEvents(events);
+    }
+    const [event, invite] = await Promise.all(
+      [LEGACY_EVENT_KEY, LEGACY_INVITE_KEY].map(
+        (key): Promise<unknown> => run('readonly', (store) => store.get(key)),
+      ),
+    );
+    return fromSingleEvent(event, invite);
+  },
+  saveEvents: async (events) => {
+    await run('readwrite', (store) => store.put(events, EVENTS_KEY));
+    await Promise.all(
+      [LEGACY_EVENT_KEY, LEGACY_INVITE_KEY].map((key) =>
+        run('readwrite', (store) => store.delete(key)),
+      ),
+    );
+  },
   loadIdentity: async (scope) =>
     asIdentity(await run('readonly', (store) => store.get(identityKey(scope)))),
   saveIdentity: (scope, identity) =>

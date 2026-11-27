@@ -102,8 +102,9 @@ export const publishEntry = async <M extends Meta>(
   keys: EventKeys,
   entry: Entry<M>,
   signer: CryptoKey,
+  preset?: string,
 ): Promise<string> =>
-  client.upload(await seal(keys.aes, await packSigned(entry, signer), ENTRY), [keys.tag]);
+  client.upload(await seal(keys.aes, await packSigned(entry, signer), ENTRY), [keys.tag], preset);
 
 /** Downloads and decrypts one entry. Anything unreadable resolves to `null`. */
 const readEntry = async (
@@ -137,47 +138,56 @@ export const createCloudinaryRepository = (
   client: CloudinaryClient,
   keys: EventKeys,
   deps: RepositoryDeps,
-): EventRepository => ({
-  load: async () => {
-    const urls = await client.list(keys.tag);
-    // One broken upload must not hide everybody else's photos.
-    const results = await Promise.allSettled(urls.map((url) => readEntry(client, keys, url)));
-    const verified = await verifyEntries(
-      results.filter(isEntry).map((result) => result.value),
-      keys.organizer,
-    );
-    return buildSnapshot(verified.filter(isSafe(client)), deps.toUrl);
-  },
+): EventRepository => {
+  // Where to upload, as the organizer's signed event says. Known after the
+  // first load, which always comes before the first upload.
+  const uploads: { preset: string | undefined } = { preset: undefined };
 
-  publishProfile: async (identity, input) => {
-    const entry = profileEntry(identity, input, deps.now());
-    await publishEntry(client, keys, entry, identity.privateKey);
-    return toProfileView(entry, deps.toUrl);
-  },
+  return {
+    load: async () => {
+      const urls = await client.list(keys.tag);
+      // One broken upload must not hide everybody else's photos.
+      const results = await Promise.allSettled(urls.map((url) => readEntry(client, keys, url)));
+      const verified = await verifyEntries(
+        results.filter(isEntry).map((result) => result.value),
+        keys.organizer,
+      );
+      const snapshot = buildSnapshot(verified.filter(isSafe(client)), deps.toUrl);
+      // eslint-disable-next-line functional/immutable-data -- this repository's single mutable cell
+      uploads.preset = snapshot.uploadPreset ?? undefined;
+      return snapshot;
+    },
 
-  publishPhoto: async (identity, input) => {
-    const id = deps.newId();
-    // The full image is uploaded untagged and bound to this photo id: only the
-    // signed entry below points to it, and it cannot be reused for another photo.
-    const [url, sha256] = await Promise.all([
-      seal(keys.aes, input.full.bytes, { kind: 'photo', photoId: id }).then((sealed) =>
-        client.upload(sealed, []),
-      ),
-      sha256Hex(input.full.bytes),
-    ]);
-    const entry = photoEntry(identity.id, input, { id, url, sha256 }, deps.now());
-    await publishEntry(client, keys, entry, identity.privateKey);
-    return toPhotoView(entry, deps.toUrl);
-  },
+    publishProfile: async (identity, input) => {
+      const entry = profileEntry(identity, input, deps.now());
+      await publishEntry(client, keys, entry, identity.privateKey, uploads.preset);
+      return toProfileView(entry, deps.toUrl);
+    },
 
-  openPhoto: async (photo) => {
-    const plain = await open(keys.aes, await client.download(photo.fullUrl, MAX_PHOTO_BYTES), {
-      kind: 'photo',
-      photoId: photo.id,
-    });
-    if (plain === null || !isJpeg(plain) || (await sha256Hex(plain)) !== photo.fullSha256) {
-      throw new Error('This photo failed its integrity check');
-    }
-    return deps.toUrl(plain, 'image/jpeg');
-  },
-});
+    publishPhoto: async (identity, input) => {
+      const id = deps.newId();
+      // The full image is uploaded untagged and bound to this photo id: only the
+      // signed entry below points to it, and it cannot be reused for another photo.
+      const [url, sha256] = await Promise.all([
+        seal(keys.aes, input.full.bytes, { kind: 'photo', photoId: id }).then((sealed) =>
+          client.upload(sealed, [], uploads.preset),
+        ),
+        sha256Hex(input.full.bytes),
+      ]);
+      const entry = photoEntry(identity.id, input, { id, url, sha256 }, deps.now());
+      await publishEntry(client, keys, entry, identity.privateKey, uploads.preset);
+      return toPhotoView(entry, deps.toUrl);
+    },
+
+    openPhoto: async (photo) => {
+      const plain = await open(keys.aes, await client.download(photo.fullUrl, MAX_PHOTO_BYTES), {
+        kind: 'photo',
+        photoId: photo.id,
+      });
+      if (plain === null || !isJpeg(plain) || (await sha256Hex(plain)) !== photo.fullSha256) {
+        throw new Error('This photo failed its integrity check');
+      }
+      return deps.toUrl(plain, 'image/jpeg');
+    },
+  };
+};

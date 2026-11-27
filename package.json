@@ -30,6 +30,7 @@
     "map:extract": "tsx scripts/extract-map.ts",
     "map:metro": "tsx scripts/extract-metro.ts",
     "event:create": "tsx scripts/create-event.ts",
+    "event:close": "tsx scripts/close-event.ts",
     "event:route": "tsx scripts/plan-routes.ts"
   },
   "dependencies": {
