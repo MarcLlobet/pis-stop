@@ -1,7 +1,7 @@
 import 'leaflet/dist/leaflet.css';
 
 import { divIcon, latLngBounds, type LatLngExpression } from 'leaflet';
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, memo, useEffect, useMemo, useState } from 'react';
 import {
   CircleMarker,
   MapContainer,
@@ -328,9 +328,24 @@ const PeerPins = ({ peers, profiles }: PeerPinsProps) =>
     />
   ));
 
-export const MapView = ({ snapshot, onOpenPhoto, onOpenGroup, choices, peers }: MapViewProps) => {
+/**
+ * Your own dot lives in its own component: the GPS updates about once a
+ * second, and that must not re-render (and so rebuild) every pin on the map.
+ */
+const OwnPositionMarker = () => {
+  const position = useOwnPosition();
+  return position === null ? null : (
+    <Marker
+      position={toTuple(position)}
+      icon={ownPositionIcon()}
+      zIndexOffset={OWN_POSITION_Z_OFFSET}
+      interactive={false}
+    />
+  );
+};
+
+const MapViewContent = ({ snapshot, onOpenPhoto, onOpenGroup, choices, peers }: MapViewProps) => {
   const dark = usePrefersDark();
-  const ownPosition = useOwnPosition();
   const placed = useMemo(() => placedPhotos(snapshot.photos), [snapshot.photos]);
   const route = snapshot.stops.map(({ position }) => toTuple(position));
   const points = [...route, ...placed.map(({ position }) => toTuple(position))];
@@ -412,14 +427,10 @@ export const MapView = ({ snapshot, onOpenPhoto, onOpenGroup, choices, peers }: 
         onOpenGroup={onOpenGroup}
       />
       <PeerPins peers={peers} profiles={snapshot.profiles} />
-      {ownPosition !== null && (
-        <Marker
-          position={toTuple(ownPosition)}
-          icon={ownPositionIcon()}
-          zIndexOffset={OWN_POSITION_Z_OFFSET}
-          interactive={false}
-        />
-      )}
+      <OwnPositionMarker />
     </MapContainer>
   );
 };
+
+/** Memoized: the screen around it re-renders on every GPS fix and live ping. */
+export const MapView = memo(MapViewContent);
