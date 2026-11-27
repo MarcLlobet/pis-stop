@@ -16,7 +16,8 @@ i a cada parada pengeu fotos que queden clavades al mapa.
   tu mateix. [docs/PROTOCOL.md](docs/PROTOCOL.md) és l’especificació exacta, amb vectors de prova
   que una implementació independent en Python reprodueix.
 
-👉 **Demo:** <https://marcllobet.github.io/pis-stop/> → «Prova la demo».
+Sense invitació, l’app no ensenya res: només deixa escanejar el QR o enganxar l’enllaç. La demo surt
+només en un desplegament sense compte de Cloudinary configurat, i `pnpm dev` hi entra directament.
 
 ## Com funciona
 
@@ -33,7 +34,8 @@ flowchart LR
 
 1. L’organitzador crea l’event amb `pnpm event:create`. Surt un **QR** i un fitxer amb la seva
    clau d’organitzador, que signa la llista de pisos.
-2. Qui escaneja el QR obté la clau del grup. El mòbil la converteix en claus no exportables i
+2. Qui escaneja el QR (amb la càmera o des de l’app) obté la clau del grup. El mòbil la converteix
+   en claus no exportables, guarda la invitació per poder-la tornar a ensenyar (**Convida**) i
    n’esborra el rastre de la barra d’adreces.
 3. En fer-se el perfil, el mòbil genera una clau de signatura pròpia. L’identificador de la
    persona és l’empremta d’aquesta clau.

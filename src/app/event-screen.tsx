@@ -4,6 +4,7 @@ import {
   Map01,
   NavigationPointer01,
   NavigationPointerOff01,
+  QrCode01,
   RefreshCcw02,
   ShieldTick,
 } from '@untitledui/icons';
@@ -19,9 +20,11 @@ import type { LiveLocationState } from '../hooks/use-live-location';
 import { useUpload } from '../hooks/use-upload';
 import { initialOf } from '../lib/format';
 import type { Identity } from '../lib/identity';
+import { buildInviteUrl, type Invite } from '../lib/invite';
 import type { EventRepository } from '../lib/repository';
 import type { PhotoView, ProfileView, Snapshot } from '../lib/snapshot';
 import { Gallery } from './gallery';
+import { InviteSheet } from './invite-sheet';
 import { ItineraryPanel } from './itinerary-panel';
 import { Lightbox } from './lightbox';
 import { MapView } from './map-view';
@@ -38,6 +41,8 @@ interface EventScreenProps {
   readonly onReload: () => void;
   readonly onLeave: () => void;
   readonly live: LiveLocationState;
+  /** Shown as a QR to bring someone else in; `null` hides the button. */
+  readonly invite: Invite | null;
 }
 
 type View = 'map' | 'gallery';
@@ -51,13 +56,14 @@ export const EventScreen = ({
   onReload,
   onLeave,
   live,
+  invite,
 }: EventScreenProps) => {
   const [view, setView] = useState<View>('map');
   const [opened, setOpened] = useState<PhotoView | null>(null);
   const [group, setGroup] = useState<readonly PhotoView[] | null>(null);
   /** Which way to go for each leg (leg index → option index). */
   const [choices, setChoices] = useState<ReadonlyMap<number, number>>(new Map());
-  const [panel, setPanel] = useState<'security' | 'leave' | null>(null);
+  const [panel, setPanel] = useState<'invite' | 'security' | 'leave' | null>(null);
   const upload = useUpload({ repository, identity, onPhoto });
 
   return (
@@ -91,6 +97,17 @@ export const EventScreen = ({
             aria-pressed={live.sharing}
             onPress={() => {
               live.setSharing(!live.sharing);
+            }}
+          />
+        )}
+        {invite !== null && (
+          <Button
+            color="tertiary"
+            size="sm"
+            iconLeading={QrCode01}
+            aria-label="Convida"
+            onPress={() => {
+              setPanel('invite');
             }}
           />
         )}
@@ -173,6 +190,17 @@ export const EventScreen = ({
           openPhoto={repository.openPhoto}
           onClose={() => {
             setOpened(null);
+          }}
+        />
+      )}
+
+      {panel === 'invite' && invite !== null && (
+        <InviteSheet
+          eventName={snapshot.eventName}
+          // The app's own address: the invite always opens this same web.
+          inviteUrl={buildInviteUrl(window.location.href, invite)}
+          onClose={() => {
+            setPanel(null);
           }}
         />
       )}

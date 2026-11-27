@@ -6,6 +6,7 @@ import { type SessionState, useSession } from '../hooks/use-session';
 import type { CloudinaryConfig } from '../lib/cloudinary';
 import { type AblyConfig, parseAblyConfig, parseCloudinaryConfig } from '../lib/config';
 import { browserKeyStore, clearLocationHash, readLocationHash } from '../platform/browser';
+import { canScanQr } from '../platform/qr-scanner';
 import { EventApp, type EventSource } from './event-app';
 import { Landing } from './landing';
 
@@ -29,12 +30,18 @@ const toSource = (
     case 'event':
       return config === null
         ? null
-        : { kind: 'event', keys: session.keys, cloudinary: config, ably: ablyConfig };
+        : {
+            kind: 'event',
+            keys: session.keys,
+            invite: session.invite,
+            cloudinary: config,
+            ably: ablyConfig,
+          };
   }
 };
 
 export const App = () => {
-  const { session, startDemo, leave } = useSession(
+  const { session, startDemo, join, leave } = useSession(
     browserKeyStore,
     readLocationHash,
     clearLocationHash,
@@ -52,7 +59,13 @@ export const App = () => {
   }
   if (source === null) {
     return (
-      <Landing onDemo={startDemo} {...(session.kind === 'event' ? { notice: NO_ACCOUNT } : {})} />
+      <Landing
+        onJoin={join}
+        canScan={canScanQr()}
+        // A deployment without a photo account is a demo; a real one shows nothing without an event.
+        {...(cloudinary === null ? { onDemo: startDemo } : {})}
+        {...(session.kind === 'event' ? { notice: NO_ACCOUNT } : {})}
+      />
     );
   }
   return <EventApp source={source} onLeave={leave} />;

@@ -1,5 +1,6 @@
-import type { EventKeys } from './crypto';
+import { type EventKeys, SECRET_BYTES } from './crypto';
 import type { Identity } from './identity';
+import { type Invite, isFingerprint } from './invite';
 
 /**
  * Where this device keeps its keys. In the browser it is IndexedDB, which can
@@ -9,6 +10,13 @@ import type { Identity } from './identity';
 export interface KeyStore {
   readonly loadEvent: () => Promise<EventKeys | null>;
   readonly saveEvent: (keys: EventKeys) => Promise<void>;
+  /**
+   * The invite itself (the group secret), kept so this device can show the
+   * QR to someone else. Unlike `aes`, it is readable by the page.
+   */
+  readonly loadInvite: () => Promise<Invite | null>;
+  readonly saveInvite: (invite: Invite) => Promise<void>;
+  /** Forgets the event keys and the invite. */
   readonly forgetEvent: () => Promise<void>;
   /** One identity per event, so profiles cannot be linked across groups. */
   readonly loadIdentity: (scope: string) => Promise<Identity | null>;
@@ -30,6 +38,15 @@ export const asEventKeys = (value: unknown): EventKeys | null =>
     ? { tag: value['tag'], organizer: value['organizer'], aes: value['aes'] }
     : null;
 
+export const asInvite = (value: unknown): Invite | null =>
+  isRecord(value) &&
+  value['secret'] instanceof Uint8Array &&
+  value['secret'].length === SECRET_BYTES &&
+  typeof value['organizer'] === 'string' &&
+  isFingerprint(value['organizer'])
+    ? { secret: new Uint8Array(value['secret']), organizer: value['organizer'] }
+    : null;
+
 export const asIdentity = (value: unknown): Identity | null =>
   isRecord(value) &&
   typeof value['id'] === 'string' &&
@@ -45,8 +62,9 @@ export const asIdentity = (value: unknown): Identity | null =>
 export const createMemoryKeyStore = (): KeyStore => {
   const state: {
     event: EventKeys | null;
+    invite: Invite | null;
     identities: ReadonlyMap<string, Identity>;
-  } = { event: null, identities: new Map() };
+  } = { event: null, invite: null, identities: new Map() };
   /* eslint-disable functional/immutable-data -- the single mutable cell of this store */
   return {
     loadEvent: () => Promise.resolve(state.event),
@@ -54,8 +72,14 @@ export const createMemoryKeyStore = (): KeyStore => {
       state.event = keys;
       return Promise.resolve();
     },
+    loadInvite: () => Promise.resolve(state.invite),
+    saveInvite: (invite) => {
+      state.invite = invite;
+      return Promise.resolve();
+    },
     forgetEvent: () => {
       state.event = null;
+      state.invite = null;
       return Promise.resolve();
     },
     loadIdentity: (scope) => Promise.resolve(state.identities.get(scope) ?? null),

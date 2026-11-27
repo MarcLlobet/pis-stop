@@ -43,7 +43,7 @@ const TOPICS: readonly Topic[] = [
   {
     icon: Eye,
     title: 'Qui pot veure què',
-    body: 'Qui té l’enllaç o el QR veu totes les fotos. Cloudinary veu que existeixen fitxers, quan es pugen i des de quina IP, però no el contingut. Si teniu ubicació en viu activada, Ably veu que algú s’ha connectat i amb quina freqüència, mai on és.',
+    body: 'Qui té l’enllaç o el QR veu la ruta i totes les fotos, i el pot passar a algú altre (el botó Convida ho fa més fàcil). Sense el QR, l’app no ensenya res. Cloudinary veu que existeixen fitxers, quan es pugen i des de quina IP, però no el contingut. Si teniu ubicació en viu activada, Ably veu que algú s’ha connectat i amb quina freqüència, mai on és.',
   },
   {
     icon: NavigationPointer01,

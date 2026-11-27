@@ -1,77 +1,111 @@
-import { Lock01, MarkerPin01, QrCode01, UserCircle } from '@untitledui/icons';
-import type { FC } from 'react';
+import { Lock01, QrCode01 } from '@untitledui/icons';
+import { type SyntheticEvent, useState } from 'react';
+import { Form as AriaForm } from 'react-aria-components';
 
 import { Button } from '@/components/base/buttons/button';
+import { Input } from '@/components/base/input/input';
 import { FeaturedIcon } from '@/components/foundations/featured-icon/featured-icon';
 
+import { type Invite, readInviteText } from '../lib/invite';
+import { QrScannerSheet } from './qr-scanner-sheet';
+
 interface LandingProps {
-  readonly onDemo: () => void;
+  readonly onJoin: (invite: Invite) => void;
+  /** Whether this browser can read a QR with the camera inside the app. */
+  readonly canScan: boolean;
+  /** Only on a demo-only deployment (no photo account configured). */
+  readonly onDemo?: () => void;
   readonly notice?: string;
 }
 
-const STEPS: readonly {
-  readonly icon: FC<{ className?: string }>;
-  readonly title: string;
-  readonly text: string;
-}[] = [
-  {
-    icon: QrCode01,
-    title: 'Escaneja el QR',
-    text: 'La clau del grup viatja dins l’enllaç. No has d’escriure cap codi.',
-  },
-  {
-    icon: UserCircle,
-    title: 'Fes-te un perfil',
-    text: 'El teu mòbil genera una clau de signatura: ningú més pot penjar fotos en nom teu.',
-  },
-  {
-    icon: MarkerPin01,
-    title: 'Penja fotos a cada pis',
-    text: 'Es queden clavades al mapa, a la parada on les has fet.',
-  },
-];
+const INVALID =
+  'Aquest enllaç no és una invitació de Pis Stop. Copia’l sencer, amb el que hi ha després del #.';
 
-export const Landing = ({ onDemo, notice }: LandingProps) => (
-  <main className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-10 px-6 py-12">
-    <header className="flex flex-col gap-4">
-      <FeaturedIcon icon={Lock01} color="brand" theme="gradient" size="lg" />
-      <div className="flex flex-col gap-2">
-        <h1 className="text-display-sm font-semibold text-primary">Pis Stop</h1>
-        <p className="text-lg text-tertiary">
-          El mapa de fotos del vostre correpisos. Les fotos es xifren i se signen al mòbil abans de
-          sortir-ne: ni el servidor les pot veure.
+/** Without an event there is nothing to see: this page only lets you join one. */
+export const Landing = ({ onJoin, canScan, onDemo, notice }: LandingProps) => {
+  const [link, setLink] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+
+  const submit = (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const invite = readInviteText(link);
+    if (invite === null) {
+      setError(INVALID);
+      return;
+    }
+    onJoin(invite);
+  };
+
+  return (
+    <main className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-8 px-6 py-12">
+      <header className="flex flex-col gap-4">
+        <FeaturedIcon icon={Lock01} color="brand" theme="gradient" size="lg" />
+        <div className="flex flex-col gap-2">
+          <h1 className="text-display-sm font-semibold text-primary">Pis Stop</h1>
+          <p className="text-lg text-tertiary">
+            Necessites un event per fer servir Pis Stop. Demana el QR a qui organitza el correpisos.
+          </p>
+        </div>
+      </header>
+
+      {notice !== undefined && (
+        <p
+          role="alert"
+          className="rounded-xl bg-warning-primary p-4 text-sm text-warning-primary ring-1 ring-secondary"
+        >
+          {notice}
         </p>
-      </div>
-    </header>
+      )}
 
-    {notice !== undefined && (
-      <p
-        role="alert"
-        className="rounded-xl bg-warning-primary p-4 text-sm text-warning-primary ring-1 ring-secondary"
-      >
-        {notice}
-      </p>
-    )}
+      {canScan ? (
+        <Button
+          size="xl"
+          iconLeading={QrCode01}
+          onPress={() => {
+            setScanning(true);
+          }}
+        >
+          Escaneja el QR
+        </Button>
+      ) : (
+        <p className="text-md text-secondary">
+          Obre el QR amb la càmera del mòbil i entraràs directament.
+        </p>
+      )}
 
-    <ol className="flex flex-col gap-5">
-      {STEPS.map(({ icon, title, text }) => (
-        <li key={title} className="flex gap-4">
-          <FeaturedIcon icon={icon} color="gray" theme="modern" size="md" />
-          <div>
-            <p className="text-md font-semibold text-secondary">{title}</p>
-            <p className="text-sm text-tertiary">{text}</p>
-          </div>
-        </li>
-      ))}
-    </ol>
+      <AriaForm className="flex flex-col gap-3" onSubmit={submit}>
+        <Input
+          label="O enganxa l’enllaç d’invitació"
+          name="invite"
+          autoComplete="off"
+          placeholder="https://…/pis-stop/#k=…"
+          value={link}
+          onChange={(value) => {
+            setLink(value);
+            setError(null);
+          }}
+          {...(error === null ? {} : { isInvalid: true, hint: error })}
+        />
+        <Button type="submit" size="lg" color="secondary" isDisabled={link.trim() === ''}>
+          Entra
+        </Button>
+      </AriaForm>
 
-    <div className="flex flex-col gap-3">
-      <Button size="xl" onPress={onDemo}>
-        Prova la demo
-      </Button>
-      <p className="text-center text-sm text-tertiary">
-        Tens un QR? Obre’l amb la càmera del mòbil i entraràs directament.
-      </p>
-    </div>
-  </main>
-);
+      {onDemo !== undefined && (
+        <Button size="lg" color="link-gray" onPress={onDemo}>
+          Prova la demo
+        </Button>
+      )}
+
+      {scanning && (
+        <QrScannerSheet
+          onScan={onJoin}
+          onClose={() => {
+            setScanning(false);
+          }}
+        />
+      )}
+    </main>
+  );
+};

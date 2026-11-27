@@ -1,9 +1,16 @@
-import { asEventKeys, asIdentity, createMemoryKeyStore, type KeyStore } from '../lib/key-store';
+import {
+  asEventKeys,
+  asIdentity,
+  asInvite,
+  createMemoryKeyStore,
+  type KeyStore,
+} from '../lib/key-store';
 
 const DATABASE = 'pis-stop';
 const STORE = 'keys';
 const VERSION = 1;
 const EVENT_KEY = 'event';
+const INVITE_KEY = 'invite';
 const identityKey = (scope: string): string => `identity:${scope}`;
 
 const settle = <T>(request: IDBRequest<T>): Promise<T> =>
@@ -41,7 +48,13 @@ const ignoreResult = (): void => undefined;
 export const createIndexedDbKeyStore = (): KeyStore => ({
   loadEvent: async () => asEventKeys(await run('readonly', (store) => store.get(EVENT_KEY))),
   saveEvent: (keys) => run('readwrite', (store) => store.put(keys, EVENT_KEY)).then(ignoreResult),
-  forgetEvent: () => run('readwrite', (store) => store.delete(EVENT_KEY)).then(ignoreResult),
+  loadInvite: async () => asInvite(await run('readonly', (store) => store.get(INVITE_KEY))),
+  saveInvite: (invite) =>
+    run('readwrite', (store) => store.put(invite, INVITE_KEY)).then(ignoreResult),
+  forgetEvent: () =>
+    Promise.all(
+      [EVENT_KEY, INVITE_KEY].map((key) => run('readwrite', (store) => store.delete(key))),
+    ).then(ignoreResult),
   loadIdentity: async (scope) =>
     asIdentity(await run('readonly', (store) => store.get(identityKey(scope)))),
   saveIdentity: (scope, identity) =>

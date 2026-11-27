@@ -15,6 +15,7 @@ import type { AblyConfig } from '../lib/config';
 import type { EventKeys } from '../lib/crypto';
 import { createDemoRepository } from '../lib/demo';
 import { AVATAR_MAX_SIDE } from '../lib/image';
+import type { Invite } from '../lib/invite';
 import { createCloudinaryRepository } from '../lib/repository';
 import { browserDeps, browserKeyStore } from '../platform/browser';
 import { encodeImage } from '../platform/image';
@@ -27,6 +28,8 @@ export type EventSource =
   | {
       readonly kind: 'event';
       readonly keys: EventKeys;
+      /** Kept on this device so it can invite others; `null` if it was not. */
+      readonly invite: Invite | null;
       readonly cloudinary: CloudinaryConfig;
       /** `null` without an Ably account: live location sharing stays hidden. */
       readonly ably: AblyConfig | null;
@@ -142,6 +145,7 @@ export const EventApp = ({ source, onLeave }: EventAppProps) => {
       onReload={reload}
       onLeave={onLeave}
       live={live}
+      invite={source.kind === 'event' ? source.invite : null}
     />
   );
 };

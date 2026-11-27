@@ -53,9 +53,15 @@ Quan obres l’enllaç, l’app:
    una **clau AES-256** (com es xifren).
 2. Guarda la clau AES a IndexedDB com a **clau no exportable**: el codi de la pàgina la pot fer
    servir, però el navegador es nega a donar-ne els bytes, ni tan sols a la mateixa pàgina.
-3. Esborra el fragment de la barra d’adreces i de l’historial (`history.replaceState`).
+3. Desa també la invitació (el secret i l’empremta) a IndexedDB, perquè qualsevol del grup pugui
+   ensenyar el QR a algú altre des de **Convida**. A diferència de la clau AES, aquesta sí que la
+   pot llegir el codi de la pàgina (vegeu el límit 12).
+4. Esborra el fragment de la barra d’adreces i de l’historial (`history.replaceState`).
 
-El secret original no es desa enlloc. Com que és aleatori i de 256 bits, no cal cap funció lenta
+També es pot entrar escanejant el QR des de la mateixa app (amb el lector de QR del navegador,
+`BarcodeDetector`: la imatge de la càmera no surt del mòbil) o enganxant l’enllaç. Sense invitació,
+l’app no ensenya res: ni mapa, ni fotos, ni demo (la demo només apareix en un desplegament sense
+compte de fotos configurat). Com que és aleatori i de 256 bits, no cal cap funció lenta
 tipus PBKDF2: no hi ha contrasenya que endevinar.
 
 ### 2. El xifratge
@@ -168,7 +174,9 @@ Cap sistema és perfecte. Aquests són els límits coneguts, sense maquillatge.
 
 1. **Qui té el QR ho té tot.** Pot veure totes les fotos i, mentre el preset de pujada existeixi,
    penjar-ne. No hi ha manera d’expulsar algú: caldria crear un event nou.
-2. **Una captura del QR funciona per sempre.** Si l’enllaç es reenvia, qui el rebi entra.
+2. **Una captura del QR funciona per sempre, i qualsevol del grup la pot reenviar.** Si l’enllaç
+   es reenvia, qui el rebi entra. El botó **Convida** ho fa més fàcil, però no ho fa possible: qui
+   tenia el QR ja el podia reenviar.
 3. **No hi ha secret cap endavant.** Si la clau es filtra demà, totes les fotos d’avui es poden
    llegir.
 4. **Un membre pot omplir l’event de fotos** (seves), fins als límits de mida. No pot fer-ho en
@@ -200,8 +208,12 @@ Cap sistema és perfecte. Aquests són els límits coneguts, sense maquillatge.
 11. **Un mòbil desbloquejat o infectat, o una extensió del navegador amb permisos sobre la web,
     poden fer servir les claus** mentre la pàgina està oberta. Les claus no exportables impedeixen
     que se les enduguin, no que les facin servir.
-12. **JavaScript no pot esborrar la memòria**: el secret del QR queda a la memòria fins que el
-    navegador la reaprofita.
+12. **El secret del grup queda desat al mòbil**, perquè es pugui tornar a ensenyar el QR. Un codi
+    maliciós a la pàgina (vegeu el límit 10) podria llegir-lo i endur-se’l, en lloc de només fer
+    servir la clau AES mentre la pàgina és oberta. A la pràctica la diferència és petita: aquest
+    mateix codi ja podria llegir i enviar totes les fotos desxifrades. «Surt» l’esborra. A més,
+    JavaScript no pot esborrar la memòria: el secret queda a la memòria fins que el navegador la
+    reaprofita.
 13. **El QR pot quedar guardat** a l’historial de l’app de la càmera o al xat on s’ha compartit.
 
 **Sobre els detalls tècnics**

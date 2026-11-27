@@ -49,8 +49,10 @@ aes  = HKDF(secret, salt, info = "aes-gcm", 32 bytes)  → AES-256-GCM key, non-
 ```
 
 `tag` is the Cloudinary tag that lists the event's entries. It reveals nothing about `aes`.
-After derivation, the app keeps `{ tag, aes, organizer fingerprint }` in IndexedDB. The raw secret
-is not stored.
+After derivation, the app keeps `{ tag, aes, organizer fingerprint }` in IndexedDB, and, separately,
+the invite `{ secret, organizer }` so that a member can show the invite QR to someone else. On load,
+the stored invite is used only if it derives the stored `tag` for the stored organizer. Leaving the
+event deletes both.
 
 ## 4. Sealed blobs
 

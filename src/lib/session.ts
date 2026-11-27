@@ -1,11 +1,16 @@
 import { deriveEventKeys, type EventKeys } from './crypto';
-import { readInvite } from './invite';
+import { type Invite, readInvite } from './invite';
 import type { KeyStore } from './key-store';
 
 export type Session =
   | { readonly kind: 'landing' }
   | { readonly kind: 'demo' }
-  | { readonly kind: 'event'; readonly keys: EventKeys };
+  | {
+      readonly kind: 'event';
+      readonly keys: EventKeys;
+      /** To invite others from this device; `null` if it was not kept. */
+      readonly invite: Invite | null;
+    };
 
 export interface ResolvedSession {
   readonly session: Session;
@@ -17,9 +22,27 @@ export interface ResolvedSession {
 export type Fallback = 'landing' | 'demo';
 
 /**
- * An invite link always wins over a remembered event. The secret in the link
- * is turned into non-extractable keys right away and is not stored as such.
+ * Joins the event of an invite (from the URL, a scanned QR or a pasted link)
+ * and remembers it on this device. Storage failures only mean that the app
+ * will ask for the invite again next time.
  */
+export const openInvite = async (invite: Invite, store: KeyStore): Promise<Session> => {
+  const keys = await deriveEventKeys(invite.secret, invite.organizer);
+  await Promise.all([store.saveEvent(keys), store.saveInvite(invite)]).catch(() => undefined);
+  return { kind: 'event', keys, invite };
+};
+
+/** The saved invite, but only if it really is the one of the saved event. */
+const savedInviteFor = async (keys: EventKeys, store: KeyStore): Promise<Invite | null> => {
+  const invite = await store.loadInvite().catch(() => null);
+  if (invite?.organizer !== keys.organizer) {
+    return null;
+  }
+  const derived = await deriveEventKeys(invite.secret, invite.organizer);
+  return derived.tag === keys.tag ? invite : null;
+};
+
+/** An invite link always wins over a remembered event. */
 export const resolveSession = async (
   hash: string,
   store: KeyStore,
@@ -27,13 +50,14 @@ export const resolveSession = async (
 ): Promise<ResolvedSession> => {
   const invite = readInvite(hash);
   if (invite !== null) {
-    const keys = await deriveEventKeys(invite.secret, invite.organizer);
-    await store.saveEvent(keys).catch(() => undefined);
-    return { session: { kind: 'event', keys }, fromInvite: true };
+    return { session: await openInvite(invite, store), fromInvite: true };
   }
   const keys = await store.loadEvent().catch(() => null);
   return {
-    session: keys === null ? { kind: fallback } : { kind: 'event', keys },
+    session:
+      keys === null
+        ? { kind: fallback }
+        : { kind: 'event', keys, invite: await savedInviteFor(keys, store) },
     fromInvite: false,
   };
 };
