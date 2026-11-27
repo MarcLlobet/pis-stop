@@ -57,7 +57,8 @@ describe('upload presets', () => {
     const { url, init } = createPresetRequest(credentials, 'ps_x');
     expect(url).toBe('https://api.cloudinary.com/v1_1/my-cloud/upload_presets');
     expect(init.method).toBe('POST');
-    expect(JSON.parse(String(init.body))).toEqual({
+    expect(typeof init.body).toBe('string');
+    expect(JSON.parse(typeof init.body === 'string' ? init.body : '')).toEqual({
       name: 'ps_x',
       unsigned: true,
       disallow_public_id: true,
