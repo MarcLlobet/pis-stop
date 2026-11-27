@@ -64,6 +64,7 @@ beforeAll(async () => {
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
   }));
+  /* eslint-disable functional/immutable-data -- jsdom has no geolocation nor object URLs */
   Object.defineProperty(navigator, 'geolocation', {
     configurable: true,
     value: {
@@ -74,7 +75,6 @@ beforeAll(async () => {
       clearWatch: () => undefined,
     },
   });
-  /* eslint-disable functional/immutable-data -- jsdom has no object URLs: this provides them */
   URL.createObjectURL = (blob: Blob | MediaSource) => {
     const url = `blob:test/${String(objectUrls.blobs.size)}`;
     objectUrls.blobs.set(url, blob as Blob);
