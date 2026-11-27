@@ -322,11 +322,12 @@ describe('l’app, pantalla per pantalla', () => {
     await post(laiaId, 'LAIA', null); // no location: in the gallery, not on the map
 
     await user.click(screen.getByRole('button', { name: 'Actualitza' }));
-    const pins = screen.getByRole('list', { name: 'Fotos al mapa' });
+    // Reloading shows a spinner first: wait for the map to come back with every pin.
+    const pins = () => within(screen.getByRole('list', { name: 'Fotos al mapa' }));
     await waitFor(() => {
-      expect(within(pins).getAllByRole('button')).toHaveLength(3);
+      expect(pins().getAllByRole('button')).toHaveLength(3);
     });
-    expect(within(pins).getAllByRole('button', { name: /^Pau a/ })).toHaveLength(2);
+    expect(pins().getAllByRole('button', { name: /^Pau a/ })).toHaveLength(2);
 
     await user.click(screen.getByRole('tab', { name: /Galeria/ }));
     const photos = () => screen.getAllByRole('button', { name: /^Foto de/ });
