@@ -58,7 +58,7 @@ export const scanQr = async (
     video: { facingMode: 'environment' },
   });
   try {
-    // eslint-disable-next-line functional/immutable-data -- the DOM API to show a camera stream
+    // eslint-disable-next-line functional/immutable-data, no-param-reassign -- the DOM API to show a camera stream
     video.srcObject = stream;
     await video.play();
     const next = async (): Promise<string | null> => {
