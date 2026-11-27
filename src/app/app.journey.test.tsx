@@ -56,10 +56,8 @@ beforeAll(async () => {
   vi.stubEnv('VITE_CLOUDINARY_CLOUD_NAME', CLOUD);
   vi.stubEnv('VITE_CLOUDINARY_UPLOAD_PRESET', SHARED_PRESET);
   vi.stubEnv('VITE_ABLY_KEY', '');
-  vi.stubGlobal(
-    'fetch',
-    (url: string, init?: RequestInit): Promise<Response> => state.cloud.fetch(url, init),
-  );
+  const fetchFromCloud = (url: string, init?: RequestInit) => state.cloud.fetch(url, init);
+  vi.stubGlobal('fetch', fetchFromCloud);
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: false,
     media: query,
@@ -218,9 +216,8 @@ describe('l’app, pantalla per pantalla', () => {
 
     await user.click(screen.getByRole('button', { name: 'Convida' }));
     const sheet = await screen.findByRole('dialog');
-    expect(
-      within(sheet).getByRole('img', { name: 'QR d’invitació a Correpisos 2026' }),
-    ).toBeInTheDocument();
+    const qr = within(sheet).getByRole('img', { name: 'QR d’invitació a Correpisos 2026' });
+    expect(qr).toBeInTheDocument();
     await user.click(within(sheet).getByRole('button', { name: 'Copia l’enllaç' }));
 
     const copied = readInviteText(await navigator.clipboard.readText());
@@ -232,35 +229,28 @@ describe('l’app, pantalla per pantalla', () => {
     const { user } = await juliaJoinsAndPosts();
     const calcotada = await createEvent(state.cloud, CALCOTADA);
 
-    await user.click(screen.getByRole('button', { name: /^Els meus events/ }));
-    await pasteInvite(user, calcotada.invite, await screen.findByRole('dialog'));
+    const openEvents = async () => {
+      await user.click(screen.getByRole('button', { name: /^Els meus events/ }));
+      return screen.findByRole('dialog');
+    };
+
+    await pasteInvite(user, calcotada.invite, await openEvents());
     // A new event is a new identity: nobody can link her profiles across events.
     await makeProfile(user, 'Júlia');
     await headerOf('Calçotada a Valls');
     expect(screen.getByText('1. Masia dels avis')).toBeInTheDocument();
-    expect(
-      within(screen.getByRole('list', { name: 'Fotos al mapa' })).queryAllByRole('button'),
-    ).toHaveLength(0);
+    const pins = screen.getByRole('list', { name: 'Fotos al mapa' });
+    expect(within(pins).queryAllByRole('button')).toHaveLength(0);
 
-    await user.click(screen.getByRole('button', { name: /^Els meus events/ }));
-    await user.click(
-      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Correpisos 2026' }),
-    );
+    const list = await openEvents();
+    await user.click(within(list).getByRole('button', { name: 'Correpisos 2026' }));
     await headerOf('Correpisos 2026');
     await screen.findByRole('button', { name: 'Júlia a 41.4036, 2.1571' });
 
-    await user.click(screen.getByRole('button', { name: /^Els meus events/ }));
-    await user.click(
-      within(await screen.findByRole('dialog')).getByRole('button', {
-        name: 'Surt d’aquest event',
-      }),
-    );
-    await user.click(
-      within(await screen.findByRole('dialog', { name: 'Vols sortir d’aquest event?' })).getByRole(
-        'button',
-        { name: 'Surt' },
-      ),
-    );
+    const sheet = await openEvents();
+    await user.click(within(sheet).getByRole('button', { name: 'Surt d’aquest event' }));
+    const confirm = await screen.findByRole('dialog', { name: 'Vols sortir d’aquest event?' });
+    await user.click(within(confirm).getByRole('button', { name: 'Surt' }));
     await headerOf('Calçotada a Valls');
   });
 });
