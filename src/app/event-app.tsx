@@ -140,6 +140,7 @@ export const EventApp = ({ source, onLeave, switcher, onEventName }: EventAppPro
       <InstallHint
         eventName={state.snapshot.eventName}
         platform={install.platform}
+        installed={install.installed}
         install={install.install}
         onContinue={install.dismiss}
       />

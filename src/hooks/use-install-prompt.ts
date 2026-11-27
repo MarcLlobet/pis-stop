@@ -10,8 +10,10 @@ interface BeforeInstallPromptEvent extends Event {
 export type InstallPlatform = 'ios' | 'other';
 
 export interface InstallPromptState {
-  /** `false` once already installed, or once dismissed on this device. */
+  /** `false` when running as the installed app, or once dismissed on this device. */
   readonly show: boolean;
+  /** The browser just finished installing the app: time to leave this tab for it. */
+  readonly installed: boolean;
   readonly platform: InstallPlatform;
   /** Triggers the native install dialog directly; `null` where none is offered (e.g. iOS). */
   readonly install: (() => void) | null;
@@ -49,7 +51,8 @@ const rememberDismissed = (): void => {
  */
 export const useInstallPrompt = (): InstallPromptState => {
   const [dismissed, setDismissed] = useState(wasDismissed);
-  const [standalone, setStandalone] = useState(isStandalone);
+  const [standalone] = useState(isStandalone);
+  const [installed, setInstalled] = useState(false);
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
@@ -58,7 +61,7 @@ export const useInstallPrompt = (): InstallPromptState => {
       setDeferred(event as BeforeInstallPromptEvent);
     };
     const onInstalled = () => {
-      setStandalone(true);
+      setInstalled(true);
       setDeferred(null);
     };
     window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
@@ -70,18 +73,21 @@ export const useInstallPrompt = (): InstallPromptState => {
   }, []);
 
   return {
-    show: !standalone && !dismissed,
+    show: installed || (!standalone && !dismissed),
+    installed,
     platform: isIos() ? 'ios' : 'other',
     install:
       deferred === null
         ? null
         : () => {
+            // Nothing else to do here: `appinstalled` follows if they accept.
             void deferred.prompt();
             setDeferred(null);
           },
     dismiss: () => {
       rememberDismissed();
       setDismissed(true);
+      setInstalled(false);
     },
   };
 };
