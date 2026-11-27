@@ -116,7 +116,12 @@ const headerOf = (eventName: string) =>
 const makeProfile = async (user: UserEvent, name: string) => {
   await screen.findByRole('heading', { name: 'Qui ets?' });
   await user.type(screen.getByRole('textbox', { name: /^Nom/ }), name);
-  await user.type(screen.getByRole('textbox', { name: /^Correu/ }), `${name}@example.cat`);
+  // An e-mail field only accepts ASCII before the @, like in a real browser.
+  const email = `${name
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()}@example.cat`;
+  await user.type(screen.getByRole('textbox', { name: /^Correu/ }), email);
   await user.click(screen.getByRole('button', { name: 'Som-hi' }));
 };
 
@@ -173,7 +178,7 @@ describe('l’app, pantalla per pantalla', () => {
 
     // Cloudinary got her profile and photo, but none of it in the clear.
     const received = state.cloud.log().map(({ body }) => body);
-    ['Júlia', 'Júlia@example.cat', 'PIXELS-OF-JULIA', 'carrer de Verdi'].forEach((text) => {
+    ['Júlia', 'julia@example.cat', 'PIXELS-OF-JULIA', 'carrer de Verdi'].forEach((text) => {
       expect(received.some((body) => contains(body, utf8(text)))).toBe(false);
     });
     expect(state.cloud.files().length).toBeGreaterThan(4);
