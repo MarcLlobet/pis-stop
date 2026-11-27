@@ -248,6 +248,10 @@ No t’ho creguis: prova-ho.
 pnpm install --frozen-lockfile
 pnpm test
 
+# 1b. Un correpisos sencer (organitzador, amics, algú que fa trampa, algú de fora i el
+#     servidor), amb criptografia real i un Cloudinary fals que guarda cada byte rebut.
+pnpm vitest run src/test/correpisos.journey.test.ts
+
 # 2. Una implementació independent en Python obté els mateixos resultats que la web.
 pip install cryptography && python3 scripts/verify_vectors.py
 

@@ -1,6 +1,6 @@
 import { LOCATION, open, seal } from './crypto';
 import { concatBytes, fromUtf8, utf8 } from './encoding';
-import { sign, SIGNATURE_BYTES, verify } from './identity';
+import { importPublicKey, sign, SIGNATURE_BYTES, verify } from './identity';
 import type { Bytes, LatLng } from './types';
 
 export interface LocationPing {
@@ -80,6 +80,14 @@ export const sealPing = async (
 
 /** Resolves a known profile's public key, or `null` if the author is unrecognised. */
 export type PublicKeyOf = (authorId: string) => Promise<CryptoKey | null>;
+
+/** Only people with a verified profile in this event can appear on the map. */
+export const profileKeys =
+  (profiles: ReadonlyMap<string, { readonly publicKey: string }>): PublicKeyOf =>
+  async (authorId) => {
+    const profile = profiles.get(authorId);
+    return profile === undefined ? null : importPublicKey(profile.publicKey);
+  };
 
 /**
  * Opens, unpacks, then verifies the signature against the author's already-known

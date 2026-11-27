@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AblyConfig } from '../lib/config';
 import type { EventKeys } from '../lib/crypto';
-import { type Identity, importPublicKey } from '../lib/identity';
-import { isExpired, isStale, openPing, sealPing } from '../lib/location';
+import type { Identity } from '../lib/identity';
+import { isExpired, isStale, openPing, profileKeys, sealPing } from '../lib/location';
 import type { ProfileView } from '../lib/snapshot';
 import type { LatLng } from '../lib/types';
 import { createLiveChannel, type LiveChannel } from '../platform/live-channel';
@@ -38,13 +38,6 @@ interface UseLiveLocationOptions {
 const PUBLISH_INTERVAL_MS = 20_000;
 /** How often stale/expired peers are re-evaluated between incoming pings. */
 const TICK_MS = 5_000;
-
-const publicKeyOf =
-  (profiles: ReadonlyMap<string, ProfileView>) =>
-  async (authorId: string): Promise<CryptoKey | null> => {
-    const profile = profiles.get(authorId);
-    return profile === undefined ? null : importPublicKey(profile.publicKey);
-  };
 
 /**
  * Live, opt-in position sharing between everyone at the same event, carried
@@ -83,7 +76,7 @@ export const useLiveLocation = ({
       return undefined;
     }
     const controller = new AbortController();
-    const resolveAuthor = publicKeyOf(profiles);
+    const resolveAuthor = profileKeys(profiles);
 
     void createLiveChannel(config.key, keys.tag, identity.id).then((created) => {
       if (controller.signal.aborted) {

@@ -27,11 +27,11 @@ import {
 import { parseCloudinaryConfig } from '../src/lib/config';
 import { deriveEventKeys, generateSecret, SECRET_BYTES } from '../src/lib/crypto';
 import { fromBase64Url, safeJsonParse, toBase64Url } from '../src/lib/encoding';
-import { type EventFile, parseEventFile, slugify, stopsOf } from '../src/lib/event-file';
+import { eventEntries, parseEventFile, slugify } from '../src/lib/event-file';
 import { fingerprintOf, generateIdentity } from '../src/lib/identity';
 import { buildInviteUrl } from '../src/lib/invite';
 import { publishEntry } from '../src/lib/repository';
-import type { Bytes, Entry } from '../src/lib/types';
+import type { Bytes } from '../src/lib/types';
 
 interface Organizer {
   readonly secret: Bytes;
@@ -50,24 +50,6 @@ const fail = (message: string): never => {
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null;
-
-const toEntries = (
-  event: EventFile,
-  organizerKey: string,
-  uploadPreset: string | null,
-): readonly Entry[] => [
-  {
-    meta: {
-      kind: 'event',
-      name: event.name.trim(),
-      organizerKey,
-      legs: event.legs,
-      ...(uploadPreset === null ? {} : { uploadPreset }),
-    },
-    payload: new Uint8Array(0),
-  },
-  ...stopsOf(event).map((meta): Entry => ({ meta, payload: new Uint8Array(0) })),
-];
 
 const createPreset = async (credentials: AdminCredentials): Promise<string> => {
   const name = presetName(crypto.getRandomValues(new Uint8Array(16)));
@@ -175,7 +157,7 @@ const main = async (): Promise<void> => {
     await saveOrganizer(join(outDir, `${slug}.keys.json`), organizer);
   }
 
-  await toEntries(event, organizer.publicKey, organizer.uploadPreset).reduce(
+  await eventEntries(event, organizer.publicKey, organizer.uploadPreset).reduce(
     async (previous, entry) => {
       await previous;
       await publishEntry(

@@ -1,5 +1,5 @@
 import { isLatLng, parseLegs } from './meta';
-import type { Leg, Stop } from './types';
+import type { Entry, Leg, Stop } from './types';
 
 /**
  * The organizer's description of an event (event.json, never committed:
@@ -53,3 +53,25 @@ export const stopsOf = (event: EventFile): readonly Stop[] =>
     order: index + 1,
     position: { lat: stop.lat, lng: stop.lng },
   }));
+
+/**
+ * What the organizer publishes for an event: its info (name, key, itinerary,
+ * own upload preset) and its stops, to be signed with the organizer key.
+ */
+export const eventEntries = (
+  event: EventFile,
+  organizerKey: string,
+  uploadPreset: string | null,
+): readonly Entry[] => [
+  {
+    meta: {
+      kind: 'event',
+      name: event.name.trim(),
+      organizerKey,
+      legs: event.legs,
+      ...(uploadPreset === null ? {} : { uploadPreset }),
+    },
+    payload: new Uint8Array(0),
+  },
+  ...stopsOf(event).map((meta): Entry => ({ meta, payload: new Uint8Array(0) })),
+];
