@@ -4,14 +4,14 @@ import { X as CloseIcon } from "@untitledui/icons";
 import { Button as AriaButton, type ButtonProps as AriaButtonProps } from "react-aria-components";
 import { cx } from "@/utils/cx";
 
-const sizes = {
+export const sizes = {
     xs: { root: "size-7", icon: "size-4" },
     sm: { root: "size-9", icon: "size-5" },
     md: { root: "size-10", icon: "size-5" },
     lg: { root: "size-11", icon: "size-6" },
 };
 
-const themes = {
+export const themes = {
     light: "text-fg-quaternary hover:bg-primary_hover hover:text-fg-quaternary_hover focus-visible:outline-2 focus-visible:outline-offset-2 outline-focus-ring",
     dark: "text-fg-white/70 hover:text-fg-white hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 outline-focus-ring",
 };

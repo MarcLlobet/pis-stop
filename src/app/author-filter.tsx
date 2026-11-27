@@ -5,6 +5,7 @@ import { cx } from '@/utils/cx';
 
 import { initialOf } from '../lib/format';
 import type { ProfileView } from '../lib/snapshot';
+import { pillToggle } from './pill-toggle';
 
 interface AuthorFilterProps {
   readonly profiles: readonly ProfileView[];
@@ -14,12 +15,7 @@ interface AuthorFilterProps {
 }
 
 const chip = ({ isSelected }: { readonly isSelected: boolean }) =>
-  cx(
-    'inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full py-1 pr-3 pl-1 text-sm font-semibold ring-1 transition duration-100 ease-linear ring-inset outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2',
-    isSelected
-      ? 'bg-brand-solid text-white ring-transparent'
-      : 'bg-primary text-secondary ring-primary hover:bg-primary_hover',
-  );
+  cx(pillToggle(isSelected), 'py-1 pr-3 pl-1');
 
 export const AuthorFilter = ({ profiles, selected, onToggle, onClear }: AuthorFilterProps) => (
   <div

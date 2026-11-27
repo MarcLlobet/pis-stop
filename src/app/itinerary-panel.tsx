@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Route } from '@untitledui/icons';
+import { ChevronDown, Route } from '@untitledui/icons';
 import { useState } from 'react';
 import { Button as AriaButton, ToggleButton as AriaToggleButton } from 'react-aria-components';
 
@@ -7,6 +7,7 @@ import { cx } from '@/utils/cx';
 import { formatDistance } from '../lib/format';
 import { chosenOption, lineColor, modeColor, segmentStyle, walkingMinutes } from '../lib/transit';
 import type { Leg, LegOption, Segment, Stop, TravelMode } from '../lib/types';
+import { pillToggle } from './pill-toggle';
 import { TRAVEL_ICONS } from './travel-icons';
 
 interface ItineraryPanelProps {
@@ -130,14 +131,7 @@ const LegCard = ({
             onChange={() => {
               onChoose(index, optionIndex);
             }}
-            className={({ isSelected }) =>
-              cx(
-                'inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ring-1 transition duration-100 ease-linear ring-inset outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2',
-                isSelected
-                  ? 'bg-brand-solid text-white ring-transparent'
-                  : 'bg-primary text-secondary ring-primary hover:bg-primary_hover',
-              )
-            }
+            className={({ isSelected }) => cx(pillToggle(isSelected), 'px-3 py-1')}
           >
             <ModeIcon mode={candidate.mode} className="size-4" />
             {candidate.minutes} min
@@ -182,6 +176,27 @@ export const ItineraryPanel = ({ stops, legs, choices, onChoose }: ItineraryPane
     return null;
   }
 
+  // Collapsed: a small nav-style control, like a map's own "directions"
+  // button, not a full-width bar sitting over the map.
+  if (!open) {
+    return (
+      <AriaButton
+        onPress={() => {
+          setOpen(true);
+        }}
+        aria-expanded={false}
+        aria-label={`Itinerari, ${String(rows.length)} trams`}
+        className="absolute bottom-24 left-3 z-10 flex items-center gap-2 rounded-full bg-primary px-3.5 py-2.5 text-left shadow-lg ring-1 ring-secondary transition-transform outline-focus-ring active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        <Route className="size-5 text-fg-brand-primary" aria-hidden="true" />
+        <span className="text-sm font-semibold text-primary">Itinerari</span>
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary">
+          {rows.length}
+        </span>
+      </AriaButton>
+    );
+  }
+
   return (
     <section
       aria-label="Itinerari"
@@ -189,7 +204,7 @@ export const ItineraryPanel = ({ stops, legs, choices, onChoose }: ItineraryPane
     >
       <AriaButton
         onPress={() => {
-          setOpen((value) => !value);
+          setOpen(false);
         }}
         aria-expanded={open}
         className="flex items-center gap-2 px-4 py-3 text-left outline-focus-ring focus-visible:outline-2"
@@ -197,27 +212,21 @@ export const ItineraryPanel = ({ stops, legs, choices, onChoose }: ItineraryPane
         <Route className="size-5 text-fg-brand-primary" aria-hidden="true" />
         <span className="flex-1 text-md font-semibold text-primary">Itinerari</span>
         <span className="text-sm text-tertiary">{rows.length} trams</span>
-        {open ? (
-          <ChevronDown className="size-5 text-fg-quaternary" aria-hidden="true" />
-        ) : (
-          <ChevronUp className="size-5 text-fg-quaternary" aria-hidden="true" />
-        )}
+        <ChevronDown className="size-5 text-fg-quaternary" aria-hidden="true" />
       </AriaButton>
-      {open && (
-        <ol className="flex flex-col gap-6 overflow-y-auto border-t border-secondary px-4 py-4">
-          {rows.map(({ leg, index, from, to }) => (
-            <LegCard
-              key={from.id}
-              leg={leg}
-              index={index}
-              from={from}
-              to={to}
-              choice={choices.get(index)}
-              onChoose={onChoose}
-            />
-          ))}
-        </ol>
-      )}
+      <ol className="flex flex-col gap-6 overflow-y-auto border-t border-secondary px-4 py-4">
+        {rows.map(({ leg, index, from, to }) => (
+          <LegCard
+            key={from.id}
+            leg={leg}
+            index={index}
+            from={from}
+            to={to}
+            choice={choices.get(index)}
+            onChoose={onChoose}
+          />
+        ))}
+      </ol>
     </section>
   );
 };

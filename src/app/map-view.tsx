@@ -1,7 +1,7 @@
 import 'leaflet/dist/leaflet.css';
 
 import { divIcon, latLngBounds, type LatLngExpression } from 'leaflet';
-import { useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   CircleMarker,
   MapContainer,
@@ -84,12 +84,16 @@ const houseIcon = (): SVGElement =>
     }),
   );
 
-/** A stop only marks the itinerary: photos are placed on the map on their own. */
+/**
+ * A stop only marks the itinerary: photos are placed on the map on their
+ * own. Drawn a touch smaller than a photo pin — quiet wayfinding, not the
+ * main thing on the map.
+ */
 const stopIcon = () =>
   divIcon({
     className: '',
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
     html: element('span', { class: 'pin', 'aria-hidden': 'true' }, houseIcon()),
   });
 
@@ -102,8 +106,8 @@ const avatarContent = (profile: ProfileView | undefined): HTMLElement =>
 const personIcon = (profile: ProfileView | undefined) =>
   divIcon({
     className: '',
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
+    iconSize: [42, 42],
+    iconAnchor: [21, 21],
     html: element('span', { class: 'pin-photo' }, avatarContent(profile)),
   });
 
@@ -128,8 +132,8 @@ const peopleIcon = (profiles: readonly (ProfileView | undefined)[]) => {
     : [];
   return divIcon({
     className: '',
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
+    iconSize: [46, 46],
+    iconAnchor: [23, 23],
     html: element('span', { class: 'pin-people' }, ...cells, ...more),
   });
 };
@@ -287,6 +291,26 @@ const PhotoPins = ({ photos, profiles, onOpenPhoto, onOpenGroup }: PhotoPinsProp
   });
 };
 
+/**
+ * Leaflet only re-measures its container on a window resize. When the map's
+ * panel is hidden and shown again (tabs), or the browser bars change the
+ * viewport, the container size changes without one: tiles then stop short of
+ * the bottom edge. Watching the container itself fixes both.
+ */
+const KeepSized = () => {
+  const map = useMap();
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    observer.observe(map.getContainer());
+    return () => {
+      observer.disconnect();
+    };
+  }, [map]);
+  return null;
+};
+
 interface PeerPinsProps {
   readonly peers: ReadonlyMap<string, PeerPosition>;
   readonly profiles: ReadonlyMap<string, ProfileView>;
@@ -322,19 +346,36 @@ export const MapView = ({ snapshot, onOpenPhoto, onOpenGroup, choices, peers }: 
       maxZoom={18}
     >
       <BaseMap />
+      <KeepSized />
       {routeLines(snapshot, choices, dark).map(({ key, positions, style }) => (
-        <Polyline
-          key={key}
-          positions={[...positions]}
-          pathOptions={{
-            color: style.color,
-            weight: style.weight,
-            opacity: 0.9,
-            lineCap: 'round',
-            lineJoin: 'round',
-            ...(style.dashArray === null ? {} : { dashArray: style.dashArray }),
-          }}
-        />
+        <Fragment key={key}>
+          {/* A thin halo under solid (ride) lines, like a real transit map,
+              so a bright line colour stays legible over the streets below. */}
+          {style.dashArray === null && (
+            <Polyline
+              positions={[...positions]}
+              pathOptions={{
+                color: dark ? 'rgba(10, 14, 20, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+                weight: style.weight + 3,
+                opacity: 1,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+              interactive={false}
+            />
+          )}
+          <Polyline
+            positions={[...positions]}
+            pathOptions={{
+              color: style.color,
+              weight: style.weight,
+              opacity: 0.9,
+              lineCap: 'round',
+              lineJoin: 'round',
+              ...(style.dashArray === null ? {} : { dashArray: style.dashArray }),
+            }}
+          />
+        </Fragment>
       ))}
       {stationsOf(snapshot, choices).map(({ key, station, color, labelled }) => (
         <CircleMarker
@@ -346,6 +387,11 @@ export const MapView = ({ snapshot, onOpenPhoto, onOpenGroup, choices, peers }: 
           {/* Like a transit map: only the stations you use, always labelled. */}
           {labelled ? (
             <Tooltip permanent direction="right" offset={[6, 0]} className="station-label">
+              <span
+                className="mr-1 inline-block size-1.5 rounded-full align-middle"
+                style={{ backgroundColor: color }}
+                aria-hidden="true"
+              />
               {station.name}
             </Tooltip>
           ) : null}

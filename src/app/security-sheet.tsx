@@ -8,14 +8,16 @@ import {
   ShieldTick,
 } from '@untitledui/icons';
 import type { FC } from 'react';
-import { Heading as AriaHeading } from 'react-aria-components';
+import { useState } from 'react';
+import { Button as AriaButton } from 'react-aria-components';
 
-import { Dialog, Modal, ModalOverlay } from '@/components/application/modals/modal';
 import { CloseButton } from '@/components/base/buttons/close-button';
 import { FeaturedIcon } from '@/components/foundations/featured-icon/featured-icon';
+import { cx } from '@/utils/cx';
 
 import { safetyCode } from '../lib/identity';
 import type { ProfileView } from '../lib/snapshot';
+import { FloatingPanel } from './floating-panel';
 
 interface SecuritySheetProps {
   readonly me: ProfileView;
@@ -57,42 +59,59 @@ const TOPICS: readonly Topic[] = [
   },
 ];
 
-/** In-app summary of SECURITY.md, plus the user's safety code. */
-export const SecuritySheet = ({ me, onClose }: SecuritySheetProps) => (
-  <ModalOverlay
-    isDismissable
-    isOpen
-    onOpenChange={(open) => {
-      if (!open) {
-        onClose();
-      }
-    }}
-  >
-    <Modal className="max-w-md">
-      <Dialog className="flex flex-col gap-5 p-6">
-        <div className="flex items-start justify-between">
+/**
+ * In-app summary of SECURITY.md, plus the user's safety code. A panel over
+ * the map, like `PhotoSheet`/`Lightbox` — not a dismissable `ModalOverlay`:
+ * that pattern's "click outside to close" detection has a known conflict
+ * with interactive toggles inside (the topics below), closing the whole
+ * sheet instead of just expanding one.
+ */
+export const SecuritySheet = ({ me, onClose }: SecuritySheetProps) => {
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (title: string) => {
+    setOpen((current) =>
+      current.has(title)
+        ? new Set([...current].filter((item) => item !== title))
+        : new Set([...current, title]),
+    );
+  };
+
+  return (
+    <FloatingPanel label="Com es protegeixen les fotos" onClose={onClose} className="bg-primary">
+      <header className="flex items-start justify-between gap-4 p-4 pb-0 sm:p-6 sm:pb-0">
+        <div className="flex flex-col gap-2">
           <FeaturedIcon icon={ShieldTick} color="success" theme="light" size="lg" />
-          <CloseButton label="Tanca" onPress={onClose} />
+          <h2 className="text-lg font-semibold text-primary">Com es protegeixen les fotos</h2>
         </div>
-        <AriaHeading slot="title" className="text-lg font-semibold text-primary">
-          Com es protegeixen les fotos
-        </AriaHeading>
+        <CloseButton label="Tanca" onPress={onClose} />
+      </header>
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
         <ul className="flex flex-col divide-y divide-secondary rounded-xl ring-1 ring-secondary">
-          {TOPICS.map(({ icon: Icon, title, body }) => (
-            <li key={title}>
-              <details className="group px-4 py-3">
-                <summary className="flex cursor-pointer list-none items-center gap-3 outline-focus-ring marker:content-none focus-visible:outline-2 focus-visible:outline-offset-2 [&::-webkit-details-marker]:hidden">
+          {TOPICS.map(({ icon: Icon, title, body }) => {
+            const isOpen = open.has(title);
+            return (
+              <li key={title} className="px-4 py-3">
+                <AriaButton
+                  onPress={() => {
+                    toggle(title);
+                  }}
+                  aria-expanded={isOpen}
+                  className="flex w-full cursor-pointer items-center gap-3 text-left outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2"
+                >
                   <Icon className="size-5 shrink-0 text-fg-quaternary" aria-hidden="true" />
                   <span className="flex-1 text-sm font-semibold text-primary">{title}</span>
                   <ChevronDown
-                    className="size-4 shrink-0 text-fg-quaternary transition-transform group-open:rotate-180"
+                    className={cx(
+                      'size-4 shrink-0 text-fg-quaternary transition-transform',
+                      isOpen && 'rotate-180',
+                    )}
                     aria-hidden="true"
                   />
-                </summary>
-                <p className="mt-2 pl-8 text-sm text-tertiary">{body}</p>
-              </details>
-            </li>
-          ))}
+                </AriaButton>
+                {isOpen && <p className="mt-2 pl-8 text-sm text-tertiary">{body}</p>}
+              </li>
+            );
+          })}
         </ul>
         <div className="rounded-xl bg-secondary p-4">
           <p className="text-sm text-tertiary">El teu codi de seguretat</p>
@@ -112,7 +131,7 @@ export const SecuritySheet = ({ me, onClose }: SecuritySheetProps) => (
         >
           Llegeix l’auditoria completa
         </a>
-      </Dialog>
-    </Modal>
-  </ModalOverlay>
-);
+      </div>
+    </FloatingPanel>
+  );
+};

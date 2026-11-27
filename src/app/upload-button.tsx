@@ -41,7 +41,7 @@ export const UploadButton = ({ status, onFiles, onDismiss }: UploadButtonProps) 
           iconLeading={Camera01}
           isLoading={busy}
           showTextWhileLoading
-          className="pointer-events-auto rounded-full shadow-xl"
+          className="pointer-events-auto rounded-full shadow-xl transition-transform active:scale-95"
         >
           <span aria-live="polite">
             {busy ? `Pujant ${status.done + 1} de ${status.total}…` : 'Fes una foto'}

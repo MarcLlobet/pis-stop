@@ -123,6 +123,7 @@ export const EventScreen = ({
             onPress={() => {
               setPanel('security');
             }}
+            className="rounded-full transition-transform active:scale-95"
           />
           <Button
             color="tertiary"
@@ -144,7 +145,9 @@ export const EventScreen = ({
           </Button>
         </header>
 
-        <TabPanel id="map" className="relative min-h-0 flex-1">
+        {/* Kept mounted (just hidden) when you visit the gallery: remounting the
+            map would reset its zoom and position, and build it at size 0. */}
+        <TabPanel id="map" shouldForceMount className="relative min-h-0 flex-1">
           <MapView
             snapshot={snapshot}
             onOpenPhoto={setOpened}

@@ -3,7 +3,12 @@ import { useEffect, useState } from 'react';
 
 import { LoadingIndicator } from '@/components/application/loading-indicator/loading-indicator';
 import { Avatar } from '@/components/base/avatar/avatar';
-import { CloseButton } from '@/components/base/buttons/close-button';
+import {
+  CloseButton,
+  sizes as closeButtonSizes,
+  themes as closeButtonThemes,
+} from '@/components/base/buttons/close-button';
+import { cx } from '@/utils/cx';
 
 import { formatTime, initialOf } from '../lib/format';
 import { safetyCode } from '../lib/identity';
@@ -65,9 +70,13 @@ export const Lightbox = ({ photo, snapshot, openPhoto, onClose }: LightboxProps)
             href={full.url}
             download={`pis-stop-${photo.id}.jpg`}
             aria-label="Descarrega la foto"
-            className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-fg-white/70 outline-focus-ring transition duration-100 ease-linear hover:bg-white/20 hover:text-fg-white focus:outline-hidden focus-visible:outline-2 focus-visible:outline-offset-2"
+            className={cx(
+              'flex shrink-0 cursor-pointer items-center justify-center rounded-lg transition duration-100 ease-linear focus:outline-hidden',
+              closeButtonSizes.sm.root,
+              closeButtonThemes.dark,
+            )}
           >
-            <Download01 className="size-5 shrink-0" aria-hidden="true" />
+            <Download01 className={cx('shrink-0', closeButtonSizes.sm.icon)} aria-hidden="true" />
           </a>
         )}
         <CloseButton label="Tanca" theme="dark" onPress={onClose} />
