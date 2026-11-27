@@ -47,26 +47,24 @@ const run = async <T>(
 
 const ignoreResult = (): void => undefined;
 
+const LEGACY_KEYS = [LEGACY_EVENT_KEY, LEGACY_INVITE_KEY] as const;
+
+const read = (key: string): Promise<unknown> => run('readonly', (store) => store.get(key));
+
+const remove = (key: string): Promise<undefined> => run('readwrite', (store) => store.delete(key));
+
 export const createIndexedDbKeyStore = (): KeyStore => ({
   loadEvents: async () => {
-    const events: unknown = await run('readonly', (store) => store.get(EVENTS_KEY));
+    const events = await read(EVENTS_KEY);
     if (events !== undefined) {
       return asSavedEvents(events);
     }
-    const [event, invite] = await Promise.all(
-      [LEGACY_EVENT_KEY, LEGACY_INVITE_KEY].map(
-        (key): Promise<unknown> => run('readonly', (store) => store.get(key)),
-      ),
-    );
+    const [event, invite] = await Promise.all(LEGACY_KEYS.map(read));
     return fromSingleEvent(event, invite);
   },
   saveEvents: async (events) => {
     await run('readwrite', (store) => store.put(events, EVENTS_KEY));
-    await Promise.all(
-      [LEGACY_EVENT_KEY, LEGACY_INVITE_KEY].map((key) =>
-        run('readwrite', (store) => store.delete(key)),
-      ),
-    );
+    await Promise.all(LEGACY_KEYS.map(remove));
   },
   loadIdentity: async (scope) =>
     asIdentity(await run('readonly', (store) => store.get(identityKey(scope)))),
