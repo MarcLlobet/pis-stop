@@ -170,6 +170,12 @@ export const useLiveLocation = ({
     });
   }, [now]);
 
+  // A new map only when someone's position changed or they went stale. The
+  // clock ticks every few seconds, and a new map each time would redraw every
+  // pin on the map for nothing.
+  const staleness = [...rawPeers]
+    .map(([authorId, peer]) => `${authorId}:${String(isStale(peer.receivedAt, now))}`)
+    .join(',');
   const peers = useMemo(
     () =>
       new Map(
@@ -178,7 +184,8 @@ export const useLiveLocation = ({
           { ...peer, stale: isStale(peer.receivedAt, now) },
         ]),
       ),
-    [rawPeers, now],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `staleness` stands for `now` here
+    [rawPeers, staleness],
   );
 
   const setSharing = useCallback(

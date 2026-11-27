@@ -143,7 +143,18 @@ pnpm event:host --keys out/<event>.keys.json "<nom>"    # li dona el control
 l’estrella de dalt una llista de pisos amb **Obre** i **Tanca**. Quan n’obre un, a tothom li surt
 la targeta per votar. Els resultats només es veuen quan el pis està tancat.
 
-### 8. Tancar l’event
+### 8. Esborrar fotos i vots
+
+```sh
+pnpm event:wipe --keys out/<event>.keys.json --votes --photos        # només compta
+pnpm event:wipe --keys out/<event>.keys.json --votes --photos --yes  # esborra
+```
+
+Esborra les fotos (miniatures i originals) i/o els vots d’un event, per començar net. No toca
+l’event, les parades ni els perfils. Cal `CLOUDINARY_API_KEY` i `CLOUDINARY_API_SECRET` a `.env`, i
+no es pot desfer.
+
+### 9. Tancar l’event
 
 ```sh
 pnpm event:close --keys out/<event>.keys.json

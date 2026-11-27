@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createPresetRequest,
+  deleteFilesRequest,
   deletePresetRequest,
   parseAdminCredentials,
   presetName,
+  publicIdFromUrl,
 } from './cloudinary-admin';
 
 const credentials = {
@@ -75,5 +77,38 @@ describe('upload presets', () => {
     const { url, init } = deletePresetRequest(credentials, 'ps_x');
     expect(url).toBe('https://api.cloudinary.com/v1_1/my-cloud/upload_presets/ps_x');
     expect(init.method).toBe('DELETE');
+  });
+});
+
+describe('publicIdFromUrl', () => {
+  const base = 'https://res.cloudinary.com/my-cloud/raw/upload/v1700000000';
+
+  it('reads the public id of a file in this account', () => {
+    expect(publicIdFromUrl('my-cloud', `${base}/abc123_X-y`)).toBe('abc123_X-y');
+    expect(publicIdFromUrl('my-cloud', `${base}/folder/abc`)).toBe('folder/abc');
+  });
+
+  it.each([
+    ['another account', 'https://res.cloudinary.com/other/raw/upload/v1/abc'],
+    ['an image upload', 'https://res.cloudinary.com/my-cloud/image/upload/v1/abc'],
+    ['another host', 'https://example.com/my-cloud/raw/upload/v1/abc'],
+    ['a path trick', `${base}/../abc`],
+    ['a query string', `${base}/abc?x=1`],
+  ])('refuses %s', (_, url) => {
+    expect(publicIdFromUrl('my-cloud', url)).toBeNull();
+  });
+});
+
+describe('deleteFilesRequest', () => {
+  it('deletes raw files by public id and clears them from the CDN', () => {
+    const { url, init } = deleteFilesRequest(credentials, ['a', 'b/c']);
+    const parsed = new URL(url);
+    expect(parsed.pathname).toBe('/v1_1/my-cloud/resources/raw/upload');
+    expect(parsed.searchParams.getAll('public_ids[]')).toEqual(['a', 'b/c']);
+    expect(parsed.searchParams.get('invalidate')).toBe('true');
+    expect(init.method).toBe('DELETE');
+    expect(new Headers(init.headers).get('Authorization')).toBe(
+      `Basic ${btoa('123456789012345:abcDEF_123-xyz')}`,
+    );
   });
 });

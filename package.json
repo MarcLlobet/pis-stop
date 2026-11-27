@@ -32,6 +32,7 @@
     "event:create": "tsx scripts/create-event.ts",
     "event:close": "tsx scripts/close-event.ts",
     "event:host": "tsx scripts/grant-host.ts",
+    "event:wipe": "tsx scripts/wipe-event.ts",
     "event:route": "tsx scripts/plan-routes.ts"
   },
   "dependencies": {

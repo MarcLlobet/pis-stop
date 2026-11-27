@@ -20,7 +20,7 @@ import { centroid } from '../lib/geo';
 import { type PlacedPhoto, placedPhotos } from '../lib/selectors';
 import type { PhotoView, ProfileView, Snapshot } from '../lib/snapshot';
 import { chosenOption, type LegStyle, legStyle, segmentStyle } from '../lib/transit';
-import type { LatLng } from '../lib/types';
+import type { LatLng, Stop } from '../lib/types';
 import { BaseMap, usePrefersDark } from './base-map';
 
 interface MapViewProps {
@@ -34,6 +34,7 @@ interface MapViewProps {
 }
 
 const BARCELONA: LatLngExpression = [41.3874, 2.1686];
+const FALLBACK_POINT: LatLng = { lat: 41.3874, lng: 2.1686 };
 const ROUTE_COLOR = 'rgb(180 71 47)';
 
 const toTuple = ({ lat, lng }: LatLng): [number, number] => [lat, lng];
@@ -235,6 +236,54 @@ const PEER_Z_OFFSET = PHOTO_Z_OFFSET + 500;
 /** Above even the peers: it's you, always findable. */
 const OWN_POSITION_Z_OFFSET = PHOTO_Z_OFFSET + 1000;
 
+interface PhotoGroupPinProps {
+  readonly items: readonly PlacedPhoto[];
+  readonly profiles: ReadonlyMap<string, ProfileView>;
+  readonly onOpenPhoto: (photo: PhotoView) => void;
+  readonly onOpenGroup: (photos: readonly PhotoView[]) => void;
+}
+
+/**
+ * One pin. Its icon and position are memoized: Leaflet swaps a marker's
+ * icon whenever the prop is a new object, which reloads the avatar image,
+ * so a pin must only get a new icon when what it shows has changed.
+ */
+const PhotoGroupPin = ({ items, profiles, onOpenPhoto, onOpenGroup }: PhotoGroupPinProps) => {
+  const [first] = items;
+  const authors = [...new Set(items.map(({ authorId }) => authorId))].map((authorId) =>
+    profiles.get(authorId),
+  );
+  const icon = useMemo(
+    () => (authors.length === 1 ? personIcon(authors[0]) : peopleIcon(authors)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `authors` is rebuilt every render; its contents are what matter
+    [...authors],
+  );
+  const position = useMemo(
+    () =>
+      toTuple(centroid(items.map((item) => item.position)) ?? items[0]?.position ?? FALLBACK_POINT),
+    [items],
+  );
+  if (first === undefined) {
+    return null;
+  }
+  // Opens over the map rather than moving it: never zooms in on a click.
+  const open = () => {
+    if (items.length === 1) {
+      onOpenPhoto(first);
+    } else {
+      onOpenGroup(items);
+    }
+  };
+  return (
+    <Marker
+      position={position}
+      icon={icon}
+      zIndexOffset={PHOTO_Z_OFFSET}
+      eventHandlers={{ click: open }}
+    />
+  );
+};
+
 /**
  * Photo pins, grouped by distance on screen: one person's avatar, or several
  * people's when more than one posted from the same spot. Zooming in splits
@@ -262,30 +311,13 @@ const PhotoPins = ({ photos, profiles, onOpenPhoto, onOpenGroup }: PhotoPinsProp
 
   return groups.map(({ items }) => {
     const [first] = items;
-    if (first === undefined) {
-      return null;
-    }
-    const center = centroid(items.map(({ position }) => position)) ?? first.position;
-    const authorIds = [...new Set(items.map(({ authorId }) => authorId))];
-    // Opens over the map rather than moving it: never zooms in on a click.
-    const open = () => {
-      if (items.length === 1) {
-        onOpenPhoto(first);
-      } else {
-        onOpenGroup(items);
-      }
-    };
-    return (
-      <Marker
+    return first === undefined ? null : (
+      <PhotoGroupPin
         key={`${first.id}:${items.length}`}
-        position={toTuple(center)}
-        icon={
-          authorIds.length === 1
-            ? personIcon(profiles.get(first.authorId))
-            : peopleIcon(authorIds.map((authorId) => profiles.get(authorId)))
-        }
-        zIndexOffset={PHOTO_Z_OFFSET}
-        eventHandlers={{ click: open }}
+        items={items}
+        profiles={profiles}
+        onOpenPhoto={onOpenPhoto}
+        onOpenGroup={onOpenGroup}
       />
     );
   });
@@ -316,17 +348,35 @@ interface PeerPinsProps {
   readonly profiles: ReadonlyMap<string, ProfileView>;
 }
 
-/** Everyone currently sharing their position, as their own avatar pin. */
-const PeerPins = ({ peers, profiles }: PeerPinsProps) =>
-  [...peers].map(([authorId, peer]) => (
+const PeerPin = ({
+  profile,
+  peer,
+}: {
+  readonly profile: ProfileView | undefined;
+  readonly peer: PeerPosition;
+}) => {
+  const icon = useMemo(() => peerIcon(profile, peer.stale), [profile, peer.stale]);
+  return (
     <Marker
-      key={authorId}
       position={toTuple(peer.position)}
-      icon={peerIcon(profiles.get(authorId), peer.stale)}
+      icon={icon}
       zIndexOffset={PEER_Z_OFFSET}
       interactive={false}
     />
+  );
+};
+
+/** Everyone currently sharing their position, as their own avatar pin. */
+const PeerPins = ({ peers, profiles }: PeerPinsProps) =>
+  [...peers].map(([authorId, peer]) => (
+    <PeerPin key={authorId} profile={profiles.get(authorId)} peer={peer} />
   ));
+
+const StopPin = ({ stop }: { readonly stop: Stop }) => {
+  const icon = useMemo(stopIcon, []);
+  const position = useMemo(() => toTuple(stop.position), [stop.position]);
+  return <Marker position={position} icon={icon} title={stop.name} />;
+};
 
 /**
  * Your own dot lives in its own component: the GPS updates about once a
@@ -334,10 +384,11 @@ const PeerPins = ({ peers, profiles }: PeerPinsProps) =>
  */
 const OwnPositionMarker = () => {
   const position = useOwnPosition();
+  const icon = useMemo(ownPositionIcon, []);
   return position === null ? null : (
     <Marker
       position={toTuple(position)}
-      icon={ownPositionIcon()}
+      icon={icon}
       zIndexOffset={OWN_POSITION_Z_OFFSET}
       interactive={false}
     />
@@ -349,6 +400,8 @@ const MapViewContent = ({ snapshot, onOpenPhoto, onOpenGroup, choices, peers }: 
   const placed = useMemo(() => placedPhotos(snapshot.photos), [snapshot.photos]);
   const route = snapshot.stops.map(({ position }) => toTuple(position));
   const points = [...route, ...placed.map(({ position }) => toTuple(position))];
+  const lines = useMemo(() => routeLines(snapshot, choices, dark), [snapshot, choices, dark]);
+  const stations = useMemo(() => stationsOf(snapshot, choices), [snapshot, choices]);
   const bounds = points.length > 1 ? latLngBounds(points).pad(0.2) : undefined;
 
   return (
@@ -362,7 +415,7 @@ const MapViewContent = ({ snapshot, onOpenPhoto, onOpenGroup, choices, peers }: 
     >
       <BaseMap />
       <KeepSized />
-      {routeLines(snapshot, choices, dark).map(({ key, positions, style }) => (
+      {lines.map(({ key, positions, style }) => (
         <Fragment key={key}>
           {/* A thin halo under solid (ride) lines, like a real transit map,
               so a bright line colour stays legible over the streets below. */}
@@ -392,7 +445,7 @@ const MapViewContent = ({ snapshot, onOpenPhoto, onOpenGroup, choices, peers }: 
           />
         </Fragment>
       ))}
-      {stationsOf(snapshot, choices).map(({ key, station, color, labelled }) => (
+      {stations.map(({ key, station, color, labelled }) => (
         <CircleMarker
           key={key}
           center={toTuple(station.position)}
@@ -413,12 +466,7 @@ const MapViewContent = ({ snapshot, onOpenPhoto, onOpenGroup, choices, peers }: 
         </CircleMarker>
       ))}
       {snapshot.stops.map((stop) => (
-        <Marker
-          key={stop.id}
-          position={toTuple(stop.position)}
-          icon={stopIcon()}
-          title={stop.name}
-        />
+        <StopPin key={stop.id} stop={stop} />
       ))}
       <PhotoPins
         photos={placed}

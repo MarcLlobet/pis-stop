@@ -1,7 +1,7 @@
 /**
  * Cloudinary Admin API calls used by the organizer's scripts only (never by
  * the web app, which has no credentials). They open and close an event by
- * creating and deleting its own upload preset.
+ * creating and deleting its own upload preset, and can wipe what was uploaded.
  */
 import { toHex } from './encoding';
 import type { Bytes } from './types';
@@ -72,3 +72,33 @@ export const deletePresetRequest = (credentials: AdminCredentials, name: string)
   url: `${presetsUrl(credentials)}/${encodeURIComponent(name)}`,
   init: { method: 'DELETE', headers: headers(credentials) },
 });
+
+/** The most files Cloudinary deletes in one call. */
+export const DELETE_BATCH = 100;
+
+const RAW_UPLOAD =
+  /^https:\/\/res\.cloudinary\.com\/([^/]+)\/raw\/upload\/v\d+\/([A-Za-z0-9_/-]+)$/;
+
+/** The public id of one of this account's files, or `null` for anything else. */
+export const publicIdFromUrl = (cloudName: string, url: string): string | null => {
+  const match = RAW_UPLOAD.exec(url);
+  return match?.[1] === cloudName && !match[2]?.includes('..') ? (match[2] ?? null) : null;
+};
+
+/**
+ * Deletes raw files by public id. `invalidate` also clears them from the CDN
+ * cache, so they stop showing up in lists and downloads.
+ */
+export const deleteFilesRequest = (
+  credentials: AdminCredentials,
+  publicIds: readonly string[],
+): AdminRequest => {
+  const query = new URLSearchParams([
+    ...publicIds.map((id): [string, string] => ['public_ids[]', id]),
+    ['invalidate', 'true'],
+  ]);
+  return {
+    url: `https://api.cloudinary.com/v1_1/${credentials.cloudName}/resources/raw/upload?${query.toString()}`,
+    init: { method: 'DELETE', headers: headers(credentials) },
+  };
+};
