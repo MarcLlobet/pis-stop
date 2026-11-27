@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+/* eslint-disable no-console, no-restricted-properties -- temporary debug */
 /**
  * The real app, screen by screen, in jsdom: landing, onboarding, map, upload,
  * gallery, lightbox, invites and the event list. Only what jsdom lacks is
