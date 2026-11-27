@@ -23,7 +23,7 @@ import {
 } from '../lib/repository';
 import { resolveSession } from '../lib/session';
 import type { Bytes, LatLng } from '../lib/types';
-import type { FakeCloudinary } from './fake-cloudinary';
+import { createFakeCloudinary, type FakeCloudinary } from './fake-cloudinary';
 import { jpeg } from './fixtures';
 
 export const CLOUD = 'correpisos';
@@ -127,3 +127,31 @@ export const contains = (haystack: Bytes, needle: Bytes): boolean =>
     { length: Math.max(0, haystack.length - needle.length + 1) },
     (_, index) => index,
   ).some((start) => needle.every((byte, offset) => haystack[start + offset] === byte));
+
+/** Marc creates the event; Júlia joins with the QR and posts; she invites Pau, who posts too. */
+export const party = async () => {
+  const cloud = createFakeCloudinary(CLOUD, ADMIN);
+  const event = await createEvent(cloud, CORREPISOS);
+
+  const juliasPhone = newPhone(cloud);
+  const julia = await openLink(juliasPhone, event.invite);
+  const juliaId = await join(julia.repository, 'Júlia');
+  const juliasPhoto = await julia.repository.publishPhoto(juliaId, {
+    position: AT_JULIAS,
+    full: image('FULL-PIXELS-OF-JULIA'),
+    thumb: image('THUMB-OF-JULIA'),
+  });
+
+  // Júlia shows her QR to Pau, from her own phone.
+  const juliasInvite = julia.session.invite ?? expect.unreachable();
+  const pausPhone = newPhone(cloud);
+  const pau = await openLink(pausPhone, buildInviteUrl(APP_URL, juliasInvite));
+  const pauId = await join(pau.repository, 'Pau');
+  await pau.repository.publishPhoto(pauId, {
+    position: AT_PAUS,
+    full: image('FULL-PIXELS-OF-PAU'),
+    thumb: image('THUMB-OF-PAU'),
+  });
+
+  return { cloud, event, julia, juliaId, juliasPhoto, juliasPhone, pau, pauId, pausPhone };
+};

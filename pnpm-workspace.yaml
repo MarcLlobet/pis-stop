@@ -11,6 +11,12 @@ onlyBuiltDependencies:
   - '@tailwindcss/oxide'
   - esbuild
 
+# Install scripts that are known and deliberately not run. msw's only copies
+# its browser service worker into a folder we never configure: the tests use
+# msw/node, which needs no worker.
+ignoredBuiltDependencies:
+  - msw
+
 # Fail instead of silently skipping a build script nobody approved.
 strictDepBuilds: true
 

@@ -7,17 +7,22 @@
  * URLs. Cloudinary is the in-memory one, so everything else, encryption and
  * signatures included, is the production code.
  */
-import { configure, render, screen, within } from '@testing-library/react';
+import { configure, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import type { ComponentType } from 'react';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { deriveEventKeys, generateSecret } from '../lib/crypto';
 import { utf8 } from '../lib/encoding';
+import { generateIdentity, type Identity } from '../lib/identity';
 import { readInviteText } from '../lib/invite';
+import { sealPing } from '../lib/location';
 import { publishEntry } from '../lib/repository';
+import type { LatLng } from '../lib/types';
 import { browserKeyStore } from '../platform/browser';
 import { createFakeCloudinary, type FakeCloudinary, readBlob } from '../test/fake-cloudinary';
 import { jpeg } from '../test/fixtures';
+import { liveBus } from '../test/live-bus';
 import {
   ADMIN,
   AT_JULIAS,
@@ -36,8 +41,12 @@ import {
 
 vi.mock('./map-view', () => import('../test/map-stand-in'));
 vi.mock('../platform/image', () => import('../test/image-stand-in'));
+vi.mock('../platform/live-channel', () => import('../test/live-bus'));
 
 configure({ asyncUtilTimeout: 5_000 });
+
+/** Shaped like a real Ably key, so live positions are on; the channel is the in-memory bus. */
+const ABLY_KEY = 'abcdEF.ghijKL:0123456789abcdef';
 // Real key generation, signatures and encryption on every step: give each story time.
 vi.setConfig({ testTimeout: 30_000 });
 
@@ -57,7 +66,7 @@ beforeAll(async () => {
   vi.stubEnv('DEV', false);
   vi.stubEnv('VITE_CLOUDINARY_CLOUD_NAME', CLOUD);
   vi.stubEnv('VITE_CLOUDINARY_UPLOAD_PRESET', SHARED_PRESET);
-  vi.stubEnv('VITE_ABLY_KEY', '');
+  vi.stubEnv('VITE_ABLY_KEY', ABLY_KEY);
   const fetchFromCloud = (url: string, init?: RequestInit) => state.cloud.fetch(url, init);
   vi.stubGlobal('fetch', fetchFromCloud);
   vi.stubGlobal('matchMedia', (query: string) => ({
@@ -100,6 +109,7 @@ beforeEach(async () => {
   // eslint-disable-next-line functional/immutable-data -- per-test fixture
   state.cloud = createFakeCloudinary(CLOUD, ADMIN);
   await (await browserKeyStore).saveEvents([]);
+  liveBus.reset();
   window.history.replaceState(null, '', '/pis-stop/');
 });
 
@@ -259,5 +269,79 @@ describe('l’app, pantalla per pantalla', () => {
     const confirm = await screen.findByRole('dialog', { name: 'Vols sortir d’aquest event?' });
     await user.click(within(confirm).getByRole('button', { name: 'Surt' }));
     await headerOf('Calçotada a Valls');
+  });
+
+  it('veu al mapa els companys que comparteixen la ubicació, i ningú més', async () => {
+    const { user, event } = await juliaJoinsAndPosts();
+    const pau = await openLink(newPhone(state.cloud), event.invite);
+    const pauId = await join(pau.repository, 'Pau');
+    const laiaId = await join(pau.repository, 'Laia');
+    const { keys } = pau.session;
+    await user.click(screen.getByRole('button', { name: 'Actualitza' }));
+    await screen.findByRole('heading', { level: 1, name: /Correpisos 2026/ });
+
+    // Júlia's phone joins the event's channel, named after the tag, never the event.
+    await waitFor(() => {
+      expect(liveBus.joined().at(-1)).toMatchObject({ key: ABLY_KEY, tag: keys.tag });
+    });
+    const at = new Date();
+    const ping = (author: Identity, authorId: string, aes = keys.aes) =>
+      sealPing(aes, author.privateKey, { authorId, position: AT_PAUS, at });
+    const stranger = await generateIdentity();
+    const otherEvent = await deriveEventKeys(generateSecret(), keys.organizer);
+
+    liveBus.deliver(keys.tag, await ping(pauId, laiaId.id)); // Pau pretending to be Laia
+    liveBus.deliver(keys.tag, await ping(stranger, stranger.id)); // no profile in the event
+    liveBus.deliver(keys.tag, await ping(pauId, pauId.id, otherEvent.aes)); // another event's key
+    liveBus.deliver(keys.tag, await ping(pauId, pauId.id)); // the real one
+
+    const live = screen.getByRole('list', { name: 'Companys en directe' });
+    await within(live).findByText('Pau a 41.3729, 2.1625');
+    expect(within(live).getAllByRole('listitem')).toHaveLength(1);
+
+    // The transport only ever carried noise.
+    liveBus.carried().forEach(({ data }) => {
+      expect(contains(data, utf8('41.3729'))).toBe(false);
+      expect(contains(data, utf8(pauId.id))).toBe(false);
+    });
+  });
+
+  it('mostra al mapa i a la galeria les fotos de tothom, i es poden filtrar per persona', async () => {
+    const { user, event } = await juliaJoinsAndPosts();
+    const pau = await openLink(newPhone(state.cloud), event.invite);
+    const pauId = await join(pau.repository, 'Pau');
+    const laiaId = await join(pau.repository, 'Laia');
+    const post = (author: Identity, marker: string, position: LatLng | null) =>
+      pau.repository.publishPhoto(author, {
+        position,
+        full: image(`FULL-${marker}`),
+        thumb: image(`THUMB-${marker}`),
+      });
+    await post(pauId, 'PAU-1', AT_PAUS);
+    await post(pauId, 'PAU-2', AT_PAUS);
+    await post(laiaId, 'LAIA', null); // no location: in the gallery, not on the map
+
+    await user.click(screen.getByRole('button', { name: 'Actualitza' }));
+    const pins = screen.getByRole('list', { name: 'Fotos al mapa' });
+    await waitFor(() => {
+      expect(within(pins).getAllByRole('button')).toHaveLength(3);
+    });
+    expect(within(pins).getAllByRole('button', { name: /^Pau a/ })).toHaveLength(2);
+
+    await user.click(screen.getByRole('tab', { name: /Galeria/ }));
+    const photos = () => screen.getAllByRole('button', { name: /^Foto de/ });
+    await waitFor(() => {
+      expect(photos()).toHaveLength(4);
+    });
+    const filter = within(screen.getByRole('group', { name: 'Filtra per persona' }));
+    await user.click(filter.getByRole('button', { name: /Pau/ }));
+    expect(photos()).toHaveLength(2);
+    await user.click(filter.getByRole('button', { name: 'Tothom' }));
+    expect(photos()).toHaveLength(4);
+
+    await user.click(screen.getByRole('button', { name: /^Foto de Laia/ }));
+    const full = await screen.findByRole('img', { name: 'Foto de Laia' });
+    const blob = objectUrls.blobs.get(full.getAttribute('src') ?? '') ?? expect.unreachable();
+    expect(await readBlob(blob)).toEqual(image('FULL-LAIA').bytes);
   });
 });

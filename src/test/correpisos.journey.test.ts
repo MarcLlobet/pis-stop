@@ -13,17 +13,12 @@ import { describe, expect, it } from 'vitest';
 import { createPresetRequest, deletePresetRequest } from '../lib/cloudinary-admin';
 import { deriveEventKeys, generateSecret } from '../lib/crypto';
 import { toBase64Url, toHex, utf8 } from '../lib/encoding';
-import { buildInviteUrl } from '../lib/invite';
 import { openPing, profileKeys, sealPing } from '../lib/location';
-import { createCloudinaryRepository, publishEntry } from '../lib/repository';
 import { placedPhotos } from '../lib/selectors';
 import { switchEvent } from '../lib/session';
-import type { Bytes, Entry } from '../lib/types';
 import { createFakeCloudinary } from './fake-cloudinary';
-import { jpeg } from './fixtures';
 import {
   ADMIN,
-  APP_URL,
   AT_JULIAS,
   AT_PAUS,
   CALCOTADA,
@@ -31,40 +26,11 @@ import {
   contains,
   CORREPISOS,
   createEvent,
-  deps,
   image,
-  join,
   newPhone,
   openLink,
+  party,
 } from './scenario';
-
-/** Marc creates the event; Júlia joins with the QR and posts; she invites Pau, who posts too. */
-const party = async () => {
-  const cloud = createFakeCloudinary(CLOUD, ADMIN);
-  const event = await createEvent(cloud, CORREPISOS);
-
-  const juliasPhone = newPhone(cloud);
-  const julia = await openLink(juliasPhone, event.invite);
-  const juliaId = await join(julia.repository, 'Júlia');
-  const juliasPhoto = await julia.repository.publishPhoto(juliaId, {
-    position: AT_JULIAS,
-    full: image('FULL-PIXELS-OF-JULIA'),
-    thumb: image('THUMB-OF-JULIA'),
-  });
-
-  // Júlia shows her QR to Pau, from her own phone.
-  const juliasInvite = julia.session.invite ?? expect.unreachable();
-  const pausPhone = newPhone(cloud);
-  const pau = await openLink(pausPhone, buildInviteUrl(APP_URL, juliasInvite));
-  const pauId = await join(pau.repository, 'Pau');
-  await pau.repository.publishPhoto(pauId, {
-    position: AT_PAUS,
-    full: image('FULL-PIXELS-OF-PAU'),
-    thumb: image('THUMB-OF-PAU'),
-  });
-
-  return { cloud, event, julia, juliaId, juliasPhoto, juliasPhone, pau, pauId, pausPhone };
-};
 
 describe('un correpisos de principi a fi', () => {
   it('la Júlia obre el QR de l’organitzador i veu l’event i la ruta', async () => {
@@ -169,92 +135,6 @@ describe('un correpisos de principi a fi', () => {
     });
     // Every upload used the event's own preset, never the public default.
     expect(new Set(cloud.files().map(({ preset }) => preset))).toEqual(new Set([event.preset]));
-  });
-
-  it('un membre no pot canviar la ruta, signar per un altre ni prendre el lloc de l’organitzador', async () => {
-    const { pau, pauId, pausPhone, juliaId, julia, event } = await party();
-    const asPau = (entry: Entry) =>
-      publishEntry(pausPhone.client, pau.session.keys, entry, pauId.privateKey, event.preset);
-    const empty = new Uint8Array(0);
-
-    // A stop of his own, a photo signed in Júlia's name, a profile with her id,
-    // and an event of his own, with a preset he would control.
-    await asPau({
-      meta: { kind: 'stop', id: 'fake', name: 'Pis trampa', order: 0, position: AT_PAUS },
-      payload: empty,
-    });
-    await asPau({
-      meta: {
-        kind: 'photo',
-        id: crypto.randomUUID(),
-        authorId: juliaId.id,
-        position: AT_PAUS,
-        takenAt: '2026-12-12T21:00:00.000Z',
-        fullUrl: `https://res.cloudinary.com/${CLOUD}/raw/upload/v1/f0`,
-        fullSha256: '0'.repeat(64),
-        imageType: 'image/jpeg',
-        width: 4,
-        height: 3,
-      },
-      payload: jpeg(),
-    });
-    await asPau({
-      meta: {
-        kind: 'profile',
-        id: juliaId.id,
-        publicKey: pauId.publicKey,
-        name: 'Júlia (de veritat)',
-        email: 'trampa@example.cat',
-        imageType: 'image/jpeg',
-        createdAt: '2026-12-12T22:00:00.000Z',
-      },
-      payload: empty,
-    });
-    await asPau({
-      meta: {
-        kind: 'event',
-        name: 'Correpisos del Pau',
-        organizerKey: pauId.publicKey,
-        legs: [],
-        uploadPreset: 'ps_preset_del_pau',
-      },
-      payload: empty,
-    });
-
-    const snapshot = await julia.repository.load();
-    expect(snapshot.eventName).toBe('Correpisos 2026');
-    expect(snapshot.uploadPreset).toBe(event.preset);
-    expect(snapshot.stops.map(({ name }) => name)).not.toContain('Pis trampa');
-    expect(snapshot.profiles.get(juliaId.id)?.name).toBe('Júlia');
-    expect(snapshot.photos.filter(({ authorId }) => authorId === juliaId.id)).toHaveLength(1);
-  });
-
-  it('algú de fora no troba res, i el que descarrega directament no ho pot obrir', async () => {
-    const { cloud, juliasPhoto } = await party();
-    const stranger = newPhone(cloud);
-    const strangerKeys = await deriveEventKeys(generateSecret(), 'A'.repeat(22));
-
-    // Without the secret, there is no tag to list...
-    expect(await stranger.client.list(strangerKeys.tag)).toEqual([]);
-    // ...and a file found some other way is only ciphertext under another key.
-    const repository = createCloudinaryRepository(stranger.client, strangerKeys, deps);
-    await expect(repository.openPhoto(juliasPhoto)).rejects.toThrow('integrity');
-  });
-
-  it('el que Cloudinary toqui es descarta, sense amagar la resta', async () => {
-    const { cloud, julia, juliasPhoto } = await party();
-    const flip = (bytes: Bytes): Bytes =>
-      bytes.map((byte, index) => (index === 20 ? byte ^ 1 : byte));
-
-    cloud.tamper(juliasPhoto.fullUrl, flip);
-    await expect(julia.repository.openPhoto(juliasPhoto)).rejects.toThrow('integrity');
-
-    const before = (await julia.repository.load()).photos.length;
-    const lastEntry = cloud.files().at(-1)?.url ?? expect.unreachable();
-    cloud.tamper(lastEntry, flip);
-    const after = await julia.repository.load();
-    expect(after.photos).toHaveLength(before - 1);
-    expect(after.eventName).toBe('Correpisos 2026');
   });
 
   it('dos events al mateix mòbil no es barregen', async () => {
