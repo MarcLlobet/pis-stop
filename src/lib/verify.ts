@@ -35,7 +35,9 @@ const stripSignature = ({ meta, payload }: SignedEntry): Entry => ({ meta, paylo
  * - event and stops: signed by the organizer, whose key must match the
  *   fingerprint that came with the invite (not anything read from storage);
  * - profiles: self-signed, and the profile id must be the key's fingerprint;
- * - photos: signed by the key of the profile they claim as author.
+ * - photos and ratings: signed by the key of the profile they claim as author;
+ * - hosts: signed by the organizer, naming the profiles that may run the voting;
+ * - rounds (voting opened or closed): signed by one of those host profiles.
  *
  * Everything else is dropped silently. Knowing the group key is enough to
  * write entries, but not to write them in someone else's name.
@@ -57,7 +59,8 @@ export const verifyEntries = async (
     entries.filter(
       (entry) =>
         (entry.meta.kind === 'event' && entry.meta.organizerKey === organizerKeyText) ||
-        entry.meta.kind === 'stop',
+        entry.meta.kind === 'stop' ||
+        entry.meta.kind === 'host',
     ),
     (entry) => isSignedBy(entry, organizerKey),
   );
@@ -78,5 +81,19 @@ export const verifyEntries = async (
     isSignedBy(entry, authorKeys.get(entry.meta.authorId)),
   );
 
-  return [...byOrganizer, ...validProfiles, ...photos].map(stripSignature);
+  // Only profiles the organizer named may open and close the voting.
+  const hostIds = new Set(
+    byOrganizer.flatMap(({ meta }) => (meta.kind === 'host' ? [meta.profileId] : [])),
+  );
+  const rounds = await filterAsync(
+    entries.filter(ofKind('round')),
+    async (entry) =>
+      hostIds.has(entry.meta.authorId) &&
+      (await isSignedBy(entry, authorKeys.get(entry.meta.authorId))),
+  );
+  const ratings = await filterAsync(entries.filter(ofKind('rating')), (entry) =>
+    isSignedBy(entry, authorKeys.get(entry.meta.authorId)),
+  );
+
+  return [...byOrganizer, ...validProfiles, ...photos, ...rounds, ...ratings].map(stripSignature);
 };

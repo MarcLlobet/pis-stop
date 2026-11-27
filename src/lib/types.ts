@@ -116,7 +116,39 @@ export interface Photo {
   readonly height: number;
 }
 
-export type Meta = EventInfo | Stop | Profile | Photo;
+/** Signed by the organizer: this profile may open and close the voting. */
+export interface Host {
+  readonly kind: 'host';
+  readonly profileId: string;
+  readonly grantedAt: string;
+}
+
+/** What a tapa is scored on, each from 1 to 5 stars. */
+export type Category = 'presentation' | 'originality' | 'taste' | 'craft';
+
+export type Scores = Readonly<Record<Category, number>>;
+
+/** Signed by a host's profile key: voting on a stop opens or closes. */
+export interface Round {
+  readonly kind: 'round';
+  readonly id: string;
+  readonly stopId: string;
+  readonly authorId: string;
+  readonly status: 'open' | 'closed';
+  readonly at: string;
+}
+
+/** Signed by the voter's profile key. The latest one per voter and stop counts. */
+export interface Rating {
+  readonly kind: 'rating';
+  readonly id: string;
+  readonly stopId: string;
+  readonly authorId: string;
+  readonly scores: Scores;
+  readonly at: string;
+}
+
+export type Meta = EventInfo | Stop | Profile | Photo | Host | Round | Rating;
 
 /**
  * The unit stored in Cloudinary: metadata plus an inline payload (a thumbnail

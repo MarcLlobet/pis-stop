@@ -6,7 +6,9 @@ import {
   type EventRepository,
   photoEntry,
   profileEntry,
+  ratingEntry,
   type RepositoryDeps,
+  roundEntry,
 } from './repository';
 import { buildSnapshot, type ToImageUrl, toPhotoView, toProfileView } from './snapshot';
 import type { Entry, LatLng, Leg, Stop } from './types';
@@ -177,6 +179,7 @@ export const createDemoRepository = (
   const entries = me === undefined ? base : [...base, meEntry(me)];
   return {
     load: () => Promise.resolve(buildSnapshot(entries, toUrl)),
+    poll: () => Promise.resolve(null),
     publishProfile: (identity, input) =>
       Promise.resolve(toProfileView(profileEntry(identity, input, deps.now()), toUrl)),
     publishPhoto: (identity, input) =>
@@ -191,6 +194,10 @@ export const createDemoRepository = (
           toUrl,
         ),
       ),
+    publishRound: (identity, input) =>
+      Promise.resolve(roundEntry(identity.id, input, deps.newId(), deps.now()).meta),
+    publishRating: (identity, input) =>
+      Promise.resolve(ratingEntry(identity.id, input, deps.newId(), deps.now()).meta),
     openPhoto: (photo) => Promise.resolve(photo.fullUrl),
   };
 };

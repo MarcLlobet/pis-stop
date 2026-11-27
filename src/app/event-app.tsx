@@ -82,7 +82,7 @@ export const EventApp = ({ source, onLeave, switcher, onEventName }: EventAppPro
           localEvent ?? undefined,
         );
   }, [source, autoProfile, devIdentity, localEvent]);
-  const { state, reload, addPhoto, addProfile } = useEvent(repository);
+  const { state, reload, addPhoto, addProfile, addRound, addRating } = useEvent(repository);
 
   // Hooks run unconditionally, before the loading/error returns below, so
   // live location updates as soon as the profile list and identity are ready.
@@ -154,6 +154,8 @@ export const EventApp = ({ source, onLeave, switcher, onEventName }: EventAppPro
       identity={mine}
       repository={repository}
       onPhoto={addPhoto}
+      onRound={addRound}
+      onRating={addRating}
       onReload={reload}
       onLeave={onLeave}
       live={live}

@@ -11,7 +11,18 @@ import {
   toPhotoView,
   toProfileView,
 } from './snapshot';
-import type { Bytes, Entry, LatLng, Meta, Photo, Profile, SignedEntry } from './types';
+import type {
+  Bytes,
+  Entry,
+  LatLng,
+  Meta,
+  Photo,
+  Profile,
+  Rating,
+  Round,
+  Scores,
+  SignedEntry,
+} from './types';
 import { verifyEntries } from './verify';
 
 export interface EncodedImage {
@@ -33,11 +44,29 @@ export interface NewPhoto {
   readonly thumb: EncodedImage;
 }
 
+export interface NewRound {
+  readonly stopId: string;
+  readonly status: Round['status'];
+}
+
+export interface NewRating {
+  readonly stopId: string;
+  readonly scores: Scores;
+}
+
 /** Everything the UI needs, independent of where the data lives. */
 export interface EventRepository {
   readonly load: () => Promise<Snapshot>;
+  /**
+   * A cheap check for news: `null` when nothing was uploaded since the last
+   * load or poll, otherwise the new snapshot.
+   */
+  readonly poll: () => Promise<Snapshot | null>;
   readonly publishProfile: (identity: Identity, profile: NewProfile) => Promise<ProfileView>;
   readonly publishPhoto: (identity: Identity, photo: NewPhoto) => Promise<PhotoView>;
+  /** Host only: open or close the voting on a stop. */
+  readonly publishRound: (identity: Identity, round: NewRound) => Promise<Round>;
+  readonly publishRating: (identity: Identity, rating: NewRating) => Promise<Rating>;
   /** Resolves with a URL for the full-size image. */
   readonly openPhoto: (photo: Photo) => Promise<string>;
 }
@@ -96,6 +125,40 @@ export const photoEntry = (
   payload: input.thumb.bytes,
 });
 
+export const roundEntry = (
+  authorId: string,
+  input: NewRound,
+  id: string,
+  at: Date,
+): Entry<Round> => ({
+  meta: {
+    kind: 'round',
+    id,
+    authorId,
+    stopId: input.stopId,
+    status: input.status,
+    at: at.toISOString(),
+  },
+  payload: EMPTY,
+});
+
+export const ratingEntry = (
+  authorId: string,
+  input: NewRating,
+  id: string,
+  at: Date,
+): Entry<Rating> => ({
+  meta: {
+    kind: 'rating',
+    id,
+    authorId,
+    stopId: input.stopId,
+    scores: input.scores,
+    at: at.toISOString(),
+  },
+  payload: EMPTY,
+});
+
 /** Signs, encrypts and uploads one entry under the event tag. */
 export const publishEntry = async <M extends Meta>(
   client: CloudinaryClient,
@@ -127,6 +190,9 @@ const isSafe =
         return payload.length === 0 || isJpeg(payload);
       case 'event':
       case 'stop':
+      case 'host':
+      case 'round':
+      case 'rating':
         return true;
     }
   };
@@ -142,20 +208,33 @@ export const createCloudinaryRepository = (
   // Where to upload, as the organizer's signed event says. Known after the
   // first load, which always comes before the first upload.
   const uploads: { preset: string | undefined } = { preset: undefined };
+  // The entries behind the last snapshot, so a poll can tell if anything changed.
+  const seen: { urls: ReadonlySet<string> | null } = { urls: null };
+
+  const loadFrom = async (urls: readonly string[]): Promise<Snapshot> => {
+    // eslint-disable-next-line functional/immutable-data -- this repository's single mutable cell
+    seen.urls = new Set(urls);
+    // One broken upload must not hide everybody else's photos.
+    const results = await Promise.allSettled(urls.map((url) => readEntry(client, keys, url)));
+    const verified = await verifyEntries(
+      results.filter(isEntry).map((result) => result.value),
+      keys.organizer,
+    );
+    const snapshot = buildSnapshot(verified.filter(isSafe(client)), deps.toUrl);
+    // eslint-disable-next-line functional/immutable-data -- this repository's single mutable cell
+    uploads.preset = snapshot.uploadPreset ?? undefined;
+    return snapshot;
+  };
 
   return {
-    load: async () => {
+    load: async () => loadFrom(await client.list(keys.tag)),
+
+    poll: async () => {
       const urls = await client.list(keys.tag);
-      // One broken upload must not hide everybody else's photos.
-      const results = await Promise.allSettled(urls.map((url) => readEntry(client, keys, url)));
-      const verified = await verifyEntries(
-        results.filter(isEntry).map((result) => result.value),
-        keys.organizer,
-      );
-      const snapshot = buildSnapshot(verified.filter(isSafe(client)), deps.toUrl);
-      // eslint-disable-next-line functional/immutable-data -- this repository's single mutable cell
-      uploads.preset = snapshot.uploadPreset ?? undefined;
-      return snapshot;
+      const known = seen.urls;
+      return known?.size === urls.length && urls.every((url) => known.has(url))
+        ? null
+        : loadFrom(urls);
     },
 
     publishProfile: async (identity, input) => {
@@ -177,6 +256,18 @@ export const createCloudinaryRepository = (
       const entry = photoEntry(identity.id, input, { id, url, sha256 }, deps.now());
       await publishEntry(client, keys, entry, identity.privateKey, uploads.preset);
       return toPhotoView(entry, deps.toUrl);
+    },
+
+    publishRound: async (identity, input) => {
+      const entry = roundEntry(identity.id, input, deps.newId(), deps.now());
+      await publishEntry(client, keys, entry, identity.privateKey, uploads.preset);
+      return entry.meta;
+    },
+
+    publishRating: async (identity, input) => {
+      const entry = ratingEntry(identity.id, input, deps.newId(), deps.now());
+      await publishEntry(client, keys, entry, identity.privateKey, uploads.preset);
+      return entry.meta;
     },
 
     openPhoto: async (photo) => {

@@ -113,6 +113,11 @@ Encriptar protegeix de la gent de fora. Les signatures protegeixen de la gent de
   de l’event) són un fitxer servit des de la mateixa web, `map/area.pmtiles`. Cap servidor de
   mapes extern sap quina zona mira ningú, i la CSP no permet carregar tessel·les de fora.
 - **Les fotos perden les metadades EXIF** (GPS original, model de càmera…) en redimensionar-les.
+- **Les votacions de les tapes són de confiança entre amics.** Cada vot va signat, així que ningú
+  pot votar en nom d’un altre, i només un perfil que l’organitzador ha nomenat (amb una nota signada
+  amb la seva clau, que no surt del seu ordinador) pot obrir i tancar-les. Però qui té la clau del
+  grup pot fer-se un segon perfil i votar dues vegades, els vots tenen nom (no són secrets) i
+  l’hora del vot la posa el mòbil de qui el fa.
 - **Validació estricta** de tot el que es desxifra: camps desconeguts fora, textos amb longitud
   màxima, dates i coordenades vàlides.
 

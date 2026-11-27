@@ -7,7 +7,10 @@ import {
   type Snapshot,
   withPhoto,
   withProfile,
+  withRating,
+  withRound,
 } from '../lib/snapshot';
+import type { Rating, Round } from '../lib/types';
 
 export type EventState =
   | { readonly status: 'loading' }
@@ -19,7 +22,12 @@ export interface EventControls {
   readonly reload: () => void;
   readonly addPhoto: (photo: PhotoView) => void;
   readonly addProfile: (profile: ProfileView) => void;
+  readonly addRound: (round: Round) => void;
+  readonly addRating: (rating: Rating) => void;
 }
+
+/** How often to ask for news while the app is on screen. One cheap request. */
+const POLL_MS = 8_000;
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : 'Error desconegut';
@@ -56,6 +64,35 @@ export const useEvent = (repository: EventRepository | null): EventControls => {
     };
   }, [repository, attempt]);
 
+  // Quietly pick up what others did (a vote opening, new photos) without the
+  // loading screen: `poll` only downloads anything if something new arrived.
+  useEffect(() => {
+    if (repository === null || state.status !== 'ready') {
+      return undefined;
+    }
+    const controller = new AbortController();
+    const check = () => {
+      if (document.hidden) {
+        return;
+      }
+      repository.poll().then(
+        (snapshot) => {
+          if (snapshot !== null && !controller.signal.aborted) {
+            setState({ status: 'ready', snapshot });
+          }
+        },
+        () => undefined,
+      );
+    };
+    const interval = setInterval(check, POLL_MS);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, [repository, state.status]);
+
   const reload = useCallback(() => {
     setAttempt((value) => value + 1);
   }, []);
@@ -68,5 +105,13 @@ export const useEvent = (repository: EventRepository | null): EventControls => {
     setState(mapReady((snapshot) => withProfile(snapshot, profile)));
   }, []);
 
-  return { state, reload, addPhoto, addProfile };
+  const addRound = useCallback((round: Round) => {
+    setState(mapReady((snapshot) => withRound(snapshot, round)));
+  }, []);
+
+  const addRating = useCallback((rating: Rating) => {
+    setState(mapReady((snapshot) => withRating(snapshot, rating)));
+  }, []);
+
+  return { state, reload, addPhoto, addProfile, addRound, addRating };
 };

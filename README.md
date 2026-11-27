@@ -128,7 +128,22 @@ Keys**; són secrets, només per al teu ordinador), cada event té el seu propi 
 nom aleatori que només viatja xifrat dins l’event. Així ningú de fora del grup hi pot pujar res, i
 cada event es tanca per separat.
 
-### 7. Tancar l’event
+### 7. Votar les tapes (opcional)
+
+Cada pis pot tenir una tapa, valorada d’1 a 5 estrelles en presentació, originalitat, sabor i
+elaboració. Perquè l’organitzador pugui obrir i tancar les votacions **des del mòbil** sense dur-hi
+la seva clau, la delega en un perfil:
+
+```sh
+pnpm event:host --keys out/<event>.keys.json            # llista qui s’ha unit
+pnpm event:host --keys out/<event>.keys.json "<nom>"    # li dona el control
+```
+
+(Cal el perfil fet a l’app abans, i `VITE_CLOUDINARY_*` a l’entorn.) A l’app, l’amfitrió veu a
+l’estrella de dalt una llista de pisos amb **Obre** i **Tanca**. Quan n’obre un, a tothom li surt
+la targeta per votar. Els resultats només es veuen quan el pis està tancat.
+
+### 8. Tancar l’event
 
 ```sh
 pnpm event:close --keys out/<event>.keys.json

@@ -1,6 +1,8 @@
 import { isValidName } from './cloudinary';
 import type {
+  Category,
   EventInfo,
+  Host,
   LatLng,
   Leg,
   LegOption,
@@ -8,6 +10,8 @@ import type {
   Photo,
   Profile,
   Ride,
+  Round,
+  Scores,
   Segment,
   Station,
   Stop,
@@ -195,6 +199,37 @@ const isPhoto = (value: Fields): value is Photo & Fields =>
   isFiniteNumber(value['width']) &&
   isFiniteNumber(value['height']);
 
+const isHost = (value: Fields): value is Host & Fields =>
+  isId(value['profileId']) && isIsoDate(value['grantedAt']);
+
+const isRound = (value: Fields): value is Round & Fields =>
+  isId(value['id']) &&
+  isId(value['stopId']) &&
+  isId(value['authorId']) &&
+  (value['status'] === 'open' || value['status'] === 'closed') &&
+  isIsoDate(value['at']);
+
+export const CATEGORIES: readonly Category[] = ['presentation', 'originality', 'taste', 'craft'];
+
+const isStars = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 5;
+
+/** Exactly the four categories, each a whole number of stars from 1 to 5. */
+const parseScores = (value: unknown): Scores | null =>
+  isRecord(value) &&
+  Object.keys(value).length === CATEGORIES.length &&
+  CATEGORIES.every((category) => isStars(value[category]))
+    ? {
+        presentation: value['presentation'] as number,
+        originality: value['originality'] as number,
+        taste: value['taste'] as number,
+        craft: value['craft'] as number,
+      }
+    : null;
+
+const isRatingShape = (value: Fields): boolean =>
+  isId(value['id']) && isId(value['stopId']) && isId(value['authorId']) && isIsoDate(value['at']);
+
 /**
  * Validates untrusted, decrypted JSON. Anything that does not match the
  * expected shape is dropped rather than trusted.
@@ -251,6 +286,34 @@ export const parseMeta = (value: unknown): Meta | null => {
             height: value.height,
           }
         : null;
+    case 'host':
+      return isHost(value)
+        ? { kind: 'host', profileId: value.profileId, grantedAt: value.grantedAt }
+        : null;
+    case 'round':
+      return isRound(value)
+        ? {
+            kind: 'round',
+            id: value.id,
+            stopId: value.stopId,
+            authorId: value.authorId,
+            status: value.status,
+            at: value.at,
+          }
+        : null;
+    case 'rating': {
+      const scores = parseScores(value['scores']);
+      return isRatingShape(value) && scores !== null
+        ? {
+            kind: 'rating',
+            id: value['id'] as string,
+            stopId: value['stopId'] as string,
+            authorId: value['authorId'] as string,
+            scores,
+            at: value['at'] as string,
+          }
+        : null;
+    }
     default:
       return null;
   }

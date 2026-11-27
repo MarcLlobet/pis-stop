@@ -91,6 +91,12 @@ Entries are uploaded with the tag. `meta` is one of:
 | `stop`    | `id`, `name`, `order`, `position {lat,lng}`                                                              | empty                | organizer key                 |
 | `profile` | `id`, `publicKey`, `name`, `email`, `imageType`, `createdAt`                                             | JPEG avatar or empty | the profile's own `publicKey` |
 | `photo`   | `id`, `authorId`, `position \| null`, `takenAt`, `fullUrl`, `fullSha256`, `imageType`, `width`, `height` | JPEG thumbnail       | the author's profile key      |
+| `host`    | `profileId`, `grantedAt`                                                                                 | empty                | organizer key                 |
+| `round`   | `id`, `stopId`, `authorId`, `status` (`open` \| `closed`), `at`                                          | empty                | the author's profile key      |
+| `rating`  | `id`, `stopId`, `authorId`, `scores`, `at`                                                               | empty                | the author's profile key      |
+
+`scores` has exactly four keys, `presentation`, `originality`, `taste` and `craft`, each a whole
+number from 1 to 5. Anything else is rejected.
 
 `uploadPreset` (at most 64 characters of `[A-Za-z0-9_-]`) names this event's own Cloudinary upload
 preset. Clients upload with the preset of the most recent valid `event` entry and fall back to the
@@ -162,6 +168,20 @@ When loading, after decryption and parsing, an entry is kept only if:
    Several versions of a profile may exist; the latest `createdAt` wins.
 4. **photo**: a verified profile with `id == authorId` exists and the signature verifies under its
    key.
+5. **host**: its signature verifies under the organizer key. This is how the organizer, whose key
+   stays offline, lets one profile run the voting from a phone.
+6. **round**: `authorId` is the `profileId` of a verified `host`, and the signature verifies under
+   that profile's key.
+7. **rating**: a verified profile with `id == authorId` exists and the signature verifies under its
+   key.
+
+### 6.1 Voting
+
+The latest `round` for a stop (by `at`) says whether it is open or closed. For each voter and stop
+only the latest `rating` counts. A rating counts only if its stop was opened and, once closed, it
+was made no more than 60 s after the close (client clocks differ a little). Results are shown only
+for closed stops. A voter is a profile, so anyone holding the group key can create a second
+profile and vote twice: this is not a defence against a determined cheater inside the group.
 
 Then, as defence in depth: photo and avatar payloads must start with the JPEG magic number
 (`FF D8 FF`), and `fullUrl` must be a plain delivery URL of the configured Cloudinary account

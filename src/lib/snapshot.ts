@@ -1,4 +1,15 @@
-import type { Bytes, Entry, EventInfo, Leg, Meta, Photo, Profile, Stop } from './types';
+import type {
+  Bytes,
+  Entry,
+  EventInfo,
+  Leg,
+  Meta,
+  Photo,
+  Profile,
+  Rating,
+  Round,
+  Stop,
+} from './types';
 
 export interface ProfileView extends Profile {
   readonly avatarUrl: string | null;
@@ -16,6 +27,12 @@ export interface Snapshot {
   readonly stops: readonly Stop[];
   readonly profiles: ReadonlyMap<string, ProfileView>;
   readonly photos: readonly PhotoView[];
+  /** Profiles the organizer named to open and close the voting. */
+  readonly hosts: ReadonlySet<string>;
+  /** Every valid open/close, oldest first. See `lib/votes.ts` for what they mean. */
+  readonly rounds: readonly Round[];
+  /** Every valid rating, oldest first; the latest per voter and stop counts. */
+  readonly ratings: readonly Rating[];
 }
 
 /** Turns bytes into something an <img> can show (an object URL in the browser). */
@@ -28,6 +45,9 @@ export const EMPTY_SNAPSHOT: Snapshot = {
   stops: [],
   profiles: new Map(),
   photos: [],
+  hosts: new Set(),
+  rounds: [],
+  ratings: [],
 };
 
 const isKind =
@@ -44,6 +64,9 @@ export const toPhotoView = (entry: Entry<Photo>, toUrl: ToImageUrl): PhotoView =
   ...entry.meta,
   thumbUrl: toUrl(entry.payload, entry.meta.imageType),
 });
+
+const byAt = (a: { readonly at: string }, b: { readonly at: string }): number =>
+  a.at.localeCompare(b.at);
 
 const byTakenAtDesc = (a: Photo, b: Photo): number => b.takenAt.localeCompare(a.takenAt);
 
@@ -77,6 +100,15 @@ export const buildSnapshot = (entries: readonly Entry[], toUrl: ToImageUrl): Sna
           .map((entry) => [entry.meta.id, toPhotoView(entry, toUrl)] as const),
       ).values(),
     ].sort(byTakenAtDesc),
+    hosts: new Set(entries.filter(isKind('host')).map(({ meta }) => meta.profileId)),
+    rounds: entries
+      .filter(isKind('round'))
+      .map(({ meta }) => meta)
+      .sort(byAt),
+    ratings: entries
+      .filter(isKind('rating'))
+      .map(({ meta }) => meta)
+      .sort(byAt),
   };
 };
 
@@ -89,4 +121,14 @@ export const withPhoto = (snapshot: Snapshot, photo: PhotoView): Snapshot => ({
 export const withProfile = (snapshot: Snapshot, profile: ProfileView): Snapshot => ({
   ...snapshot,
   profiles: new Map([...snapshot.profiles, [profile.id, profile]]),
+});
+
+export const withRound = (snapshot: Snapshot, round: Round): Snapshot => ({
+  ...snapshot,
+  rounds: [...snapshot.rounds.filter(({ id }) => id !== round.id), round].sort(byAt),
+});
+
+export const withRating = (snapshot: Snapshot, rating: Rating): Snapshot => ({
+  ...snapshot,
+  ratings: [...snapshot.ratings.filter(({ id }) => id !== rating.id), rating].sort(byAt),
 });

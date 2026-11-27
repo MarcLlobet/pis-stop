@@ -7,8 +7,9 @@ import {
   QrCode01,
   RefreshCcw02,
   ShieldTick,
+  Star01,
 } from '@untitledui/icons';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Heading as AriaHeading } from 'react-aria-components';
 
 import { Dialog, Modal, ModalOverlay } from '@/components/application/modals/modal';
@@ -23,6 +24,8 @@ import type { Identity } from '../lib/identity';
 import { buildInviteUrl, type Invite } from '../lib/invite';
 import type { EventRepository } from '../lib/repository';
 import type { PhotoView, ProfileView, Snapshot } from '../lib/snapshot';
+import type { Rating, Round, Scores } from '../lib/types';
+import { currentRounds, isOpen, scoresOf } from '../lib/votes';
 import { EventsSheet, type EventSwitcher } from './events-sheet';
 import { Gallery } from './gallery';
 import { InviteSheet } from './invite-sheet';
@@ -32,6 +35,7 @@ import { MapView } from './map-view';
 import { PhotoSheet } from './photo-sheet';
 import { SecuritySheet } from './security-sheet';
 import { UploadButton } from './upload-button';
+import { VotesSheet } from './votes-sheet';
 
 interface EventScreenProps {
   readonly snapshot: Snapshot;
@@ -39,6 +43,8 @@ interface EventScreenProps {
   readonly identity: Identity;
   readonly repository: EventRepository;
   readonly onPhoto: (photo: PhotoView) => void;
+  readonly onRound: (round: Round) => void;
+  readonly onRating: (rating: Rating) => void;
   readonly onReload: () => void;
   readonly onLeave: () => void;
   readonly live: LiveLocationState;
@@ -55,6 +61,8 @@ export const EventScreen = ({
   identity,
   repository,
   onPhoto,
+  onRound,
+  onRating,
   onReload,
   onLeave,
   live,
@@ -66,8 +74,39 @@ export const EventScreen = ({
   const [group, setGroup] = useState<readonly PhotoView[] | null>(null);
   /** Which way to go for each leg (leg index → option index). */
   const [choices, setChoices] = useState<ReadonlyMap<number, number>>(new Map());
-  const [panel, setPanel] = useState<'events' | 'invite' | 'security' | 'leave' | null>(null);
+  const [panel, setPanel] = useState<'events' | 'invite' | 'security' | 'votes' | 'leave' | null>(
+    null,
+  );
   const upload = useUpload({ repository, identity, onPhoto });
+
+  // Stops open for voting where this person has not voted yet.
+  const rounds = currentRounds(snapshot);
+  const pending = snapshot.stops.filter(
+    ({ id }) => isOpen(rounds, id) && scoresOf(snapshot, me.id, id) === undefined,
+  );
+  const hasVoting = snapshot.hosts.has(me.id) || snapshot.rounds.length > 0;
+
+  // The voting card comes up by itself, once for each round that opens.
+  const announced = useRef<ReadonlySet<string>>(new Set());
+  const unannounced = pending
+    .map(({ id }) => rounds.get(id)?.id ?? '')
+    .filter((roundId) => !announced.current.has(roundId));
+  const announce = unannounced.join(',');
+  useEffect(() => {
+    if (announce === '') {
+      return;
+    }
+    // eslint-disable-next-line functional/immutable-data -- remembers what was already shown
+    announced.current = new Set([...announced.current, ...announce.split(',')]);
+    setPanel((current) => current ?? 'votes');
+  }, [announce]);
+
+  const sendRound = async (stopId: string, status: Round['status']) => {
+    onRound(await repository.publishRound(identity, { stopId, status }));
+  };
+  const sendRating = async (stopId: string, scores: Scores) => {
+    onRating(await repository.publishRating(identity, { stopId, scores }));
+  };
 
   return (
     <>
@@ -103,6 +142,25 @@ export const EventScreen = ({
                 live.setSharing(!live.sharing);
               }}
             />
+          )}
+          {hasVoting && (
+            <Button
+              color="tertiary"
+              size="sm"
+              iconLeading={Star01}
+              aria-label={pending.length > 0 ? 'Votacions (n’hi ha una d’oberta)' : 'Votacions'}
+              onPress={() => {
+                setPanel('votes');
+              }}
+              className="relative rounded-full transition-transform active:scale-95"
+            >
+              {pending.length > 0 && (
+                <span
+                  className="absolute top-0.5 right-0.5 size-2.5 rounded-full bg-error-solid"
+                  aria-hidden="true"
+                />
+              )}
+            </Button>
           )}
           {invite !== null && (
             <Button
@@ -225,6 +283,18 @@ export const EventScreen = ({
           onClose={() => {
             setPanel(null);
           }}
+        />
+      )}
+
+      {panel === 'votes' && (
+        <VotesSheet
+          snapshot={snapshot}
+          meId={me.id}
+          onClose={() => {
+            setPanel(null);
+          }}
+          onRound={sendRound}
+          onRate={sendRating}
         />
       )}
 

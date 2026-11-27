@@ -17,7 +17,7 @@ import { parseArgs } from 'node:util';
 
 import QRCode from 'qrcode';
 
-import { createCloudinaryClient, isValidName } from '../src/lib/cloudinary';
+import { createCloudinaryClient } from '../src/lib/cloudinary';
 import {
   type AdminCredentials,
   createPresetRequest,
@@ -25,31 +25,13 @@ import {
   presetName,
 } from '../src/lib/cloudinary-admin';
 import { parseCloudinaryConfig } from '../src/lib/config';
-import { deriveEventKeys, generateSecret, SECRET_BYTES } from '../src/lib/crypto';
-import { fromBase64Url, safeJsonParse, toBase64Url } from '../src/lib/encoding';
+import { deriveEventKeys, generateSecret } from '../src/lib/crypto';
+import { safeJsonParse, toBase64Url } from '../src/lib/encoding';
 import { eventEntries, parseEventFile, slugify } from '../src/lib/event-file';
 import { fingerprintOf, generateIdentity } from '../src/lib/identity';
 import { buildInviteUrl } from '../src/lib/invite';
 import { publishEntry } from '../src/lib/repository';
-import type { Bytes } from '../src/lib/types';
-
-interface Organizer {
-  readonly secret: Bytes;
-  readonly publicKey: string;
-  readonly privateKey: CryptoKey;
-  /** This event's own upload preset; `null` when it uses the shared default. */
-  readonly uploadPreset: string | null;
-}
-
-const SIGNING = { name: 'ECDSA', namedCurve: 'P-256' } as const;
-
-const fail = (message: string): never => {
-  console.error(`✖ ${message}`);
-  process.exit(1);
-};
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null;
+import { fail, loadOrganizer, type Organizer } from './organizer';
 
 const createPreset = async (credentials: AdminCredentials): Promise<string> => {
   const name = presetName(crypto.getRandomValues(new Uint8Array(16)));
@@ -74,33 +56,6 @@ const newOrganizer = async (credentials: AdminCredentials | null): Promise<Organ
     ...identity,
     uploadPreset: credentials === null ? null : await createPreset(credentials),
   };
-};
-
-const loadOrganizer = async (path: string): Promise<Organizer> => {
-  const saved = safeJsonParse(await readFile(path, 'utf8'));
-  if (!isRecord(saved) || typeof saved['secret'] !== 'string' || !isRecord(saved['privateKey'])) {
-    return fail(`${path} is not a keys file written by this script`);
-  }
-  const secret = fromBase64Url(saved['secret']);
-  const publicKey = saved['publicKey'];
-  const savedPreset = saved['uploadPreset'] ?? null;
-  const uploadPreset =
-    typeof savedPreset === 'string' && isValidName(savedPreset) ? savedPreset : null;
-  if (
-    secret?.length !== SECRET_BYTES ||
-    typeof publicKey !== 'string' ||
-    (savedPreset !== null && uploadPreset === null)
-  ) {
-    return fail(`${path} is corrupted`);
-  }
-  const privateKey = await crypto.subtle.importKey(
-    'jwk',
-    saved['privateKey'] as JsonWebKey,
-    SIGNING,
-    false,
-    ['sign'],
-  );
-  return { secret, publicKey, privateKey, uploadPreset };
 };
 
 const saveOrganizer = async (path: string, organizer: Organizer): Promise<void> => {

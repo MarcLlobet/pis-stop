@@ -251,4 +251,58 @@ describe('isJpeg', () => {
     expect(isJpeg(utf8('<svg/>'))).toBe(false);
     expect(isJpeg(Uint8Array.of(0xff, 0xd8))).toBe(false);
   });
+
+  describe('voting', () => {
+    const counter = () => {
+      const state = { next: 0 };
+      return () => {
+        // eslint-disable-next-line functional/immutable-data -- test double
+        state.next += 1;
+        return `id-${String(state.next)}`;
+      };
+    };
+    const scores = { presentation: 5, originality: 4, taste: 3, craft: 2 };
+
+    it('runs a vote end to end, and a poll reports news only once', async () => {
+      const { client, keys, organizer, me } = await setup();
+      const repository = createCloudinaryRepository(client, keys, { ...deps, newId: counter() });
+      const guest = await generateIdentity();
+      const empty = new Uint8Array(0);
+      const asOrganizer = (meta: Parameters<typeof publishEntry>[2]['meta']) =>
+        publishEntry(client, keys, { meta, payload: empty }, organizer.privateKey);
+
+      await asOrganizer(stopEntry('s1', 1).meta);
+      await asOrganizer({ kind: 'host', profileId: me.id, grantedAt: '2026-12-12T12:00:00.000Z' });
+      await join(repository, me);
+      await join(repository, guest);
+
+      expect((await repository.load()).rounds).toEqual([]);
+      expect(await repository.poll()).toBeNull();
+
+      await repository.publishRound(me, { stopId: 's1', status: 'open' });
+      const afterOpen = await repository.poll();
+      expect(afterOpen?.rounds.map(({ status }) => status)).toEqual(['open']);
+      expect(afterOpen?.hosts.has(me.id)).toBe(true);
+      expect(await repository.poll()).toBeNull();
+
+      await repository.publishRating(guest, { stopId: 's1', scores });
+      const afterVote = await repository.poll();
+      expect(afterVote?.ratings.map(({ authorId, scores: given }) => [authorId, given])).toEqual([
+        [guest.id, scores],
+      ]);
+    });
+
+    it('does not accept a round from someone the organizer did not name', async () => {
+      const { client, keys, organizer, me, repository } = await setup();
+      await publishEntry(
+        client,
+        keys,
+        { meta: stopEntry('s1', 1).meta, payload: new Uint8Array(0) },
+        organizer.privateKey,
+      );
+      await join(repository, me);
+      await repository.publishRound(me, { stopId: 's1', status: 'open' });
+      expect((await repository.load()).rounds).toEqual([]);
+    });
+  });
 });
