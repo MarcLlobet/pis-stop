@@ -182,6 +182,9 @@ export const createDemoRepository = (
     poll: () => Promise.resolve(null),
     publishProfile: (identity, input) =>
       Promise.resolve(toProfileView(profileEntry(identity, input, deps.now()), toUrl)),
+    // Nothing is kept in the demo, so there is no previous photo to keep.
+    updateProfile: (identity, input) =>
+      Promise.resolve(toProfileView(profileEntry(identity, input, deps.now()), toUrl)),
     publishPhoto: (identity, input) =>
       Promise.resolve(
         toPhotoView(

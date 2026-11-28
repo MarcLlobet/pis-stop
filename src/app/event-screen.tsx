@@ -32,7 +32,9 @@ import { InviteSheet } from './invite-sheet';
 import { ItineraryPanel } from './itinerary-panel';
 import { Lightbox } from './lightbox';
 import { MapView } from './map-view';
+import type { OnboardingValues } from './onboarding';
 import { PhotoSheet } from './photo-sheet';
+import { ProfileSheet } from './profile-sheet';
 import { SecuritySheet } from './security-sheet';
 import { UploadButton } from './upload-button';
 import { VotesSheet } from './votes-sheet';
@@ -45,6 +47,8 @@ interface EventScreenProps {
   readonly onPhoto: (photo: PhotoView) => void;
   readonly onRound: (round: Round) => void;
   readonly onRating: (rating: Rating) => void;
+  /** Saves an edited profile; `avatar` is `null` to keep the current photo. */
+  readonly onSaveProfile: (values: OnboardingValues) => Promise<void>;
   readonly onReload: () => void;
   readonly onLeave: () => void;
   readonly live: LiveLocationState;
@@ -55,6 +59,9 @@ interface EventScreenProps {
 
 type View = 'map' | 'gallery';
 
+/** The sheet or dialog on top of the screen, if any. */
+type Panel = 'events' | 'profile' | 'invite' | 'security' | 'votes' | 'leave' | null;
+
 export const EventScreen = ({
   snapshot,
   me,
@@ -63,6 +70,7 @@ export const EventScreen = ({
   onPhoto,
   onRound,
   onRating,
+  onSaveProfile,
   onReload,
   onLeave,
   live,
@@ -74,9 +82,7 @@ export const EventScreen = ({
   const [group, setGroup] = useState<readonly PhotoView[] | null>(null);
   /** Which way to go for each leg (leg index → option index). */
   const [choices, setChoices] = useState<ReadonlyMap<number, number>>(new Map());
-  const [panel, setPanel] = useState<'events' | 'invite' | 'security' | 'votes' | 'leave' | null>(
-    null,
-  );
+  const [panel, setPanel] = useState<Panel>(null);
   const upload = useUpload({ repository, identity, onPhoto });
 
   // Stops open for voting where this person has not voted yet.
@@ -266,9 +272,23 @@ export const EventScreen = ({
       {panel === 'events' && (
         <EventsSheet
           switcher={switcher}
+          me={me}
+          onEditProfile={() => {
+            setPanel('profile');
+          }}
           onLeave={() => {
             setPanel('leave');
           }}
+          onClose={() => {
+            setPanel(null);
+          }}
+        />
+      )}
+
+      {panel === 'profile' && (
+        <ProfileSheet
+          me={me}
+          onSave={onSaveProfile}
           onClose={() => {
             setPanel(null);
           }}

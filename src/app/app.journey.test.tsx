@@ -13,7 +13,7 @@ import type { ComponentType } from 'react';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { deriveEventKeys, generateSecret } from '../lib/crypto';
-import { utf8 } from '../lib/encoding';
+import { toHex, utf8 } from '../lib/encoding';
 import { generateIdentity, type Identity } from '../lib/identity';
 import { readInviteText } from '../lib/invite';
 import { sealPing } from '../lib/location';
@@ -344,5 +344,32 @@ describe('l’app, pantalla per pantalla', () => {
     const full = await screen.findByRole('img', { name: 'Foto de Laia' });
     const blob = objectUrls.blobs.get(full.getAttribute('src') ?? '') ?? expect.unreachable();
     expect(await readBlob(blob)).toEqual(image('FULL-LAIA').bytes);
+  });
+
+  it('es pot canviar la foto i el nom del perfil, i els altres ho veuen', async () => {
+    const { user, event } = await juliaJoinsAndPosts();
+
+    await user.click(screen.getByRole('button', { name: /^Els meus events/ }));
+    const events = await screen.findByRole('dialog');
+    await user.click(within(events).getByRole('button', { name: 'Edita el perfil' }));
+    const sheet = await screen.findByRole('dialog', { name: 'El meu perfil' });
+    const name = within(sheet).getByRole('textbox', { name: /^Nom/ });
+    await user.clear(name);
+    await user.type(name, 'Júlia P.');
+    const input = sheet.querySelector<HTMLInputElement>('input[type="file"]');
+    await user.upload(input ?? expect.unreachable(), photoFile('NEW-AVATAR-OF-JULIA'));
+    await user.click(within(sheet).getByRole('button', { name: 'Desa' }));
+
+    // Her own screen updates at once...
+    await screen.findByRole('button', { name: 'Júlia P. a 41.4036, 2.1571' });
+    expect(screen.queryByRole('dialog', { name: 'El meu perfil' })).not.toBeInTheDocument();
+
+    // ...and Pau, on his phone, sees the new name and the new photo.
+    const pau = await openLink(newPhone(state.cloud), event.invite);
+    const profiles = [...pau.snapshot.profiles.values()];
+    expect(profiles.map((profile) => profile.name)).toEqual(['Júlia P.']);
+    expect(profiles[0]?.avatarUrl).toBe(
+      `bytes:image/jpeg:${toHex(jpeg(...utf8('NEW-AVATAR-OF-JULIA')))}`,
+    );
   });
 });

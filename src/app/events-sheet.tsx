@@ -1,12 +1,15 @@
-import { Check, LogOut01 } from '@untitledui/icons';
+import { Check, Edit01, LogOut01 } from '@untitledui/icons';
 import { Heading as AriaHeading } from 'react-aria-components';
 
 import { Dialog, Modal, ModalOverlay } from '@/components/application/modals/modal';
+import { Avatar } from '@/components/base/avatar/avatar';
 import { Button } from '@/components/base/buttons/button';
 import { CloseButton } from '@/components/base/buttons/close-button';
 
+import { initialOf } from '../lib/format';
 import type { Invite } from '../lib/invite';
 import type { EventSummary } from '../lib/session';
+import type { ProfileView } from '../lib/snapshot';
 import { JoinForm } from './join-form';
 
 /** Everything the event list needs, handed down from the app. */
@@ -23,12 +26,21 @@ interface EventsSheetProps {
   readonly switcher: EventSwitcher;
   readonly onLeave: () => void;
   readonly onClose: () => void;
+  /** One's own profile in the open event, with a way to edit it. */
+  readonly me?: ProfileView;
+  readonly onEditProfile?: () => void;
 }
 
 const UNNAMED = 'Event sense nom';
 
 /** The events joined on this device: open another, join a new one, or leave this one. */
-export const EventsSheet = ({ switcher, onLeave, onClose }: EventsSheetProps) => (
+export const EventsSheet = ({
+  switcher,
+  onLeave,
+  onClose,
+  me,
+  onEditProfile,
+}: EventsSheetProps) => (
   <ModalOverlay
     isDismissable
     isOpen
@@ -46,6 +58,18 @@ export const EventsSheet = ({ switcher, onLeave, onClose }: EventsSheetProps) =>
           </AriaHeading>
           <CloseButton label="Tanca" onPress={onClose} />
         </div>
+
+        {me !== undefined && onEditProfile !== undefined && (
+          <div className="flex items-center gap-3">
+            <Avatar size="md" src={me.avatarUrl} initials={initialOf(me.name)} alt="" />
+            <span className="min-w-0 flex-1 truncate text-md font-semibold text-primary">
+              {me.name}
+            </span>
+            <Button color="secondary" size="sm" iconLeading={Edit01} onPress={onEditProfile}>
+              Edita el perfil
+            </Button>
+          </div>
+        )}
 
         {switcher.events.length > 0 && (
           <ul className="flex flex-col gap-2" aria-label="Events d’aquest mòbil">

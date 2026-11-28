@@ -135,6 +135,13 @@ export const EventApp = ({ source, onLeave, switcher, onEventName }: EventAppPro
     addProfile(await repository.publishProfile(signer, { name, email, avatar: encoded }));
   };
 
+  const saveProfile = async ({ name, email, avatar }: OnboardingValues) => {
+    const signer = await identity.ensure();
+    // No new photo: the repository keeps the current one.
+    const encoded = avatar === null ? null : await encodeImage(avatar, AVATAR_MAX_SIDE, 0.85);
+    addProfile(await repository.updateProfile(signer, { name, email, avatar: encoded }));
+  };
+
   return mine === null || me === undefined ? (
     install.show ? (
       <InstallHint
@@ -156,6 +163,7 @@ export const EventApp = ({ source, onLeave, switcher, onEventName }: EventAppPro
       onPhoto={addPhoto}
       onRound={addRound}
       onRating={addRating}
+      onSaveProfile={saveProfile}
       onReload={reload}
       onLeave={onLeave}
       live={live}

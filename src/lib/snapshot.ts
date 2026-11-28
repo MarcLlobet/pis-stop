@@ -71,7 +71,7 @@ const byAt = (a: { readonly at: string }, b: { readonly at: string }): number =>
 const byTakenAtDesc = (a: Photo, b: Photo): number => b.takenAt.localeCompare(a.takenAt);
 
 /** Latest profile version wins, so people can update their name or avatar. */
-const latestProfiles = (entries: readonly Entry<Profile>[]): readonly Entry<Profile>[] => [
+export const latestProfiles = (entries: readonly Entry<Profile>[]): readonly Entry<Profile>[] => [
   ...new Map(
     [...entries]
       .sort((a, b) => a.meta.createdAt.localeCompare(b.meta.createdAt))

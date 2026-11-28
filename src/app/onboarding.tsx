@@ -25,7 +25,7 @@ type Status =
   | { readonly kind: 'saving' }
   | { readonly kind: 'error'; readonly message: string };
 
-const usePreview = (file: File | null): string | null => {
+export const usePreview = (file: File | null): string | null => {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (file === null) {

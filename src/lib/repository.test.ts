@@ -101,6 +101,45 @@ const join = (repository: ReturnType<typeof createCloudinaryRepository>, me: Ide
   repository.publishProfile(me, { name: ' Júlia ', email: 'j@x.cat', avatar: image(9) });
 
 describe('createCloudinaryRepository', () => {
+  it('edits a profile: the newest version wins and keeps the photo unless replaced', async () => {
+    const { repository, me, client, keys } = await setup();
+    await repository.load();
+    const created = await join(repository, me);
+    const everybody = () => createCloudinaryRepository(client, keys, deps).load();
+
+    const renamed = await repository.updateProfile(me, {
+      name: 'Júlia P.',
+      email: 'julia@x.cat',
+      avatar: null,
+    });
+    expect(renamed.avatarUrl).toBe(created.avatarUrl);
+    const seen = (await everybody()).profiles.get(me.id);
+    expect(seen?.name).toBe('Júlia P.');
+    expect(seen?.email).toBe('julia@x.cat');
+    expect(seen?.avatarUrl).toBe(created.avatarUrl);
+
+    const newPhotoOfMe = await repository.updateProfile(me, {
+      name: 'Júlia P.',
+      email: 'julia@x.cat',
+      avatar: image(7, 7, 7, 7, 7),
+    });
+    expect(newPhotoOfMe.avatarUrl).not.toBe(created.avatarUrl);
+    expect((await everybody()).profiles.get(me.id)?.avatarUrl).toBe(newPhotoOfMe.avatarUrl);
+  });
+
+  it('edits a profile even when the phone clock is behind the version it replaces', async () => {
+    const { repository, me, client, keys } = await setup();
+    await repository.load();
+    await join(repository, me);
+    const late = createCloudinaryRepository(client, keys, {
+      ...deps,
+      now: () => new Date('2026-12-12T09:00:00.000Z'),
+    });
+    await late.load();
+    await late.updateProfile(me, { name: 'Nou nom', email: '', avatar: null });
+    expect((await late.load()).profiles.get(me.id)?.name).toBe('Nou nom');
+  });
+
   it('uploads with the preset the organizer signed into the event', async () => {
     const { repository, files, keys, organizer, client, me } = await setup();
     await repository.load();

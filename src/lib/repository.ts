@@ -4,6 +4,7 @@ import type { Identity } from './identity';
 import { packSigned, unpackSigned } from './pack';
 import {
   buildSnapshot,
+  latestProfiles,
   type PhotoView,
   type ProfileView,
   type Snapshot,
@@ -38,6 +39,13 @@ export interface NewProfile {
   readonly avatar: EncodedImage | null;
 }
 
+/** Editing one's own profile: a new photo, or `null` to keep the current one. */
+export interface ProfileUpdate {
+  readonly name: string;
+  readonly email: string;
+  readonly avatar: EncodedImage | null;
+}
+
 export interface NewPhoto {
   readonly position: LatLng | null;
   readonly full: EncodedImage;
@@ -63,6 +71,11 @@ export interface EventRepository {
    */
   readonly poll: () => Promise<Snapshot | null>;
   readonly publishProfile: (identity: Identity, profile: NewProfile) => Promise<ProfileView>;
+  /**
+   * Publishes a newer version of one's own profile: the newest one wins for
+   * everybody. Keeps the current photo unless a new one is given.
+   */
+  readonly updateProfile: (identity: Identity, profile: ProfileUpdate) => Promise<ProfileView>;
   readonly publishPhoto: (identity: Identity, photo: NewPhoto) => Promise<PhotoView>;
   /** Host only: open or close the voting on a stop. */
   readonly publishRound: (identity: Identity, round: NewRound) => Promise<Round>;
@@ -210,6 +223,17 @@ export const createCloudinaryRepository = (
   const uploads: { preset: string | undefined } = { preset: undefined };
   // The entries behind the last snapshot, so a poll can tell if anything changed.
   const seen: { urls: ReadonlySet<string> | null } = { urls: null };
+  // Everybody's current profile entry, so editing a profile can keep its photo
+  // and always be newer than the version it replaces.
+  const current: { profiles: ReadonlyMap<string, Entry<Profile>> } = { profiles: new Map() };
+
+  const remember = (entries: readonly Entry<Profile>[]): void => {
+    // eslint-disable-next-line functional/immutable-data -- this repository's single mutable cell
+    current.profiles = new Map([
+      ...current.profiles,
+      ...entries.map((entry): [string, Entry<Profile>] => [entry.meta.id, entry]),
+    ]);
+  };
 
   const loadFrom = async (urls: readonly string[]): Promise<Snapshot> => {
     // eslint-disable-next-line functional/immutable-data -- this repository's single mutable cell
@@ -220,7 +244,13 @@ export const createCloudinaryRepository = (
       results.filter(isEntry).map((result) => result.value),
       keys.organizer,
     );
-    const snapshot = buildSnapshot(verified.filter(isSafe(client)), deps.toUrl);
+    const safe = verified.filter(isSafe(client));
+    remember(
+      latestProfiles(
+        safe.filter((entry): entry is Entry<Profile> => entry.meta.kind === 'profile'),
+      ),
+    );
+    const snapshot = buildSnapshot(safe, deps.toUrl);
     // eslint-disable-next-line functional/immutable-data -- this repository's single mutable cell
     uploads.preset = snapshot.uploadPreset ?? undefined;
     return snapshot;
@@ -240,6 +270,27 @@ export const createCloudinaryRepository = (
     publishProfile: async (identity, input) => {
       const entry = profileEntry(identity, input, deps.now());
       await publishEntry(client, keys, entry, identity.privateKey, uploads.preset);
+      remember([entry]);
+      return toProfileView(entry, deps.toUrl);
+    },
+
+    updateProfile: async (identity, input) => {
+      const previous = current.profiles.get(identity.id);
+      const kept =
+        previous === undefined || previous.payload.length === 0
+          ? null
+          : { bytes: previous.payload, type: previous.meta.imageType, width: 0, height: 0 };
+      // Newest wins, so never older than what it replaces, even with a phone clock behind.
+      const now = deps.now();
+      const after =
+        previous === undefined ? now : new Date(Date.parse(previous.meta.createdAt) + 1);
+      const entry = profileEntry(
+        identity,
+        { name: input.name, email: input.email, avatar: input.avatar ?? kept },
+        now > after ? now : after,
+      );
+      await publishEntry(client, keys, entry, identity.privateKey, uploads.preset);
+      remember([entry]);
       return toProfileView(entry, deps.toUrl);
     },
 
