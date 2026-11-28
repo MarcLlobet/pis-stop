@@ -164,6 +164,18 @@ Esborra el preset de l’event: les fotos es continuen veient, però ja no se’
 altres events no canvien. Un event creat sense les claus de l’API fa servir el preset compartit
 (`VITE_CLOUDINARY_UPLOAD_PRESET`): esborrar-lo a Cloudinary els tanca tots alhora.
 
+### 10. Guardar-te totes les fotos
+
+```sh
+pnpm event:export --keys out/<event>.keys.json   # → out/<event>-fotos/
+```
+
+Les baixa, les desxifra i comprova la signatura i el hash de cadascuna, com fa l’app. Surten
+com a JPEG amb el nom de qui la va fer i l’hora (`001-2026-12-12_21-04-33-julia.jpg`, amb aquesta
+data com a data del fitxer) i un `fotos.json` amb autor, hora i posició. Si el tornes a executar,
+només afegeix les noves. Ho pots fer abans de tancar o d’esborrar res. Aquesta carpeta té les
+fotos **en clar**: guarda-la amb la mateixa cura que el fitxer de claus.
+
 ## Desenvolupament
 
 ```sh
