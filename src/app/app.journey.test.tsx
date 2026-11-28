@@ -194,6 +194,32 @@ describe('l’app, pantalla per pantalla', () => {
     expect(state.cloud.files().length).toBeGreaterThan(4);
   });
 
+  it('després de fer una foto, en pot desar l’original al mòbil', async () => {
+    const shared: { files: readonly File[] } = { files: [] };
+    /* eslint-disable functional/immutable-data -- jsdom has no share sheet: this records it */
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true });
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: (data: ShareData) => {
+        shared.files = data.files ?? [];
+        return Promise.resolve();
+      },
+    });
+    /* eslint-enable functional/immutable-data */
+    const { user } = await juliaJoinsAndPosts();
+
+    const done = await screen.findByRole('status');
+    expect(done).toHaveTextContent('Foto penjada');
+    await user.click(within(done).getByRole('button', { name: 'Desa-la al mòbil' }));
+
+    // The original, exactly as the camera gave it, goes to the phone's share sheet.
+    expect(shared.files).toHaveLength(1);
+    expect(await readBlob(shared.files[0] ?? expect.unreachable())).toEqual(
+      jpeg(...utf8('PIXELS-OF-JULIA')),
+    );
+    expect(screen.queryByRole('button', { name: 'Desa-la al mòbil' })).not.toBeInTheDocument();
+  });
+
   it('veu les fotos del Pau, les obre senceres i no es creu les seves trampes', async () => {
     const { user, event } = await juliaJoinsAndPosts();
 

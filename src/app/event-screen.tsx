@@ -26,6 +26,7 @@ import type { EventRepository } from '../lib/repository';
 import type { PhotoView, ProfileView, Snapshot } from '../lib/snapshot';
 import type { Rating, Round, Scores } from '../lib/types';
 import { currentRounds, isOpen, scoresOf } from '../lib/votes';
+import { savePhotos } from '../platform/save-photo';
 import { EventsSheet, type EventSwitcher } from './events-sheet';
 import { Gallery } from './gallery';
 import { InviteSheet } from './invite-sheet';
@@ -238,6 +239,9 @@ export const EventScreen = ({
             void upload.uploadFiles(files);
           }}
           onDismiss={upload.dismiss}
+          onSave={(files) => {
+            void savePhotos(files);
+          }}
         />
       </Tabs>
 

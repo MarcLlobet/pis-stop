@@ -10,6 +10,8 @@ import { encodeImage } from '../platform/image';
 export type UploadStatus =
   | { readonly kind: 'idle' }
   | { readonly kind: 'uploading'; readonly done: number; readonly total: number }
+  /** Uploaded: the originals stay at hand to keep a copy on the phone. */
+  | { readonly kind: 'done'; readonly files: readonly File[] }
   | { readonly kind: 'error'; readonly message: string };
 
 interface UploadOptions {
@@ -51,7 +53,7 @@ export const useUpload = ({ repository, identity, onPhoto }: UploadOptions) => {
           onPhoto(await repository.publishPhoto(identity, { position, full, thumb }));
           setStatus({ kind: 'uploading', done: index + 1, total });
         }, Promise.resolve());
-        setStatus({ kind: 'idle' });
+        setStatus({ kind: 'done', files });
       } catch (error) {
         setStatus({
           kind: 'error',

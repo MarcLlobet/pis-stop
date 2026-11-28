@@ -1,4 +1,4 @@
-import { Camera01 } from '@untitledui/icons';
+import { Camera01, Check, Download01 } from '@untitledui/icons';
 import { FileTrigger as AriaFileTrigger } from 'react-aria-components';
 
 import { Button } from '@/components/base/buttons/button';
@@ -9,9 +9,11 @@ interface UploadButtonProps {
   readonly status: UploadStatus;
   readonly onFiles: (files: readonly File[]) => void;
   readonly onDismiss: () => void;
+  /** Keeps a copy of the just uploaded originals on the phone. */
+  readonly onSave: (files: readonly File[]) => void;
 }
 
-export const UploadButton = ({ status, onFiles, onDismiss }: UploadButtonProps) => {
+export const UploadButton = ({ status, onFiles, onDismiss, onSave }: UploadButtonProps) => {
   const busy = status.kind === 'uploading';
   const select = (files: FileList | null) => {
     onFiles(Array.from(files ?? []));
@@ -26,6 +28,32 @@ export const UploadButton = ({ status, onFiles, onDismiss }: UploadButtonProps) 
           {status.message}
           <Button color="link-gray" size="sm" className="text-white!" onPress={onDismiss}>
             D’acord
+          </Button>
+        </div>
+      )}
+      {status.kind === 'done' && (
+        <div
+          role="status"
+          className="pointer-events-auto flex items-center gap-2 rounded-xl bg-primary py-1.5 pr-1.5 pl-3 text-sm text-secondary shadow-lg ring-1 ring-secondary"
+        >
+          <Check aria-hidden="true" className="size-5 shrink-0 text-success-primary" />
+          {status.files.length === 1
+            ? 'Foto penjada'
+            : `${String(status.files.length)} fotos penjades`}
+          {/* Photos taken from a web page do not land in the phone's gallery. */}
+          <Button
+            color="secondary"
+            size="sm"
+            iconLeading={Download01}
+            onPress={() => {
+              onSave(status.files);
+              onDismiss();
+            }}
+          >
+            {status.files.length === 1 ? 'Desa-la al mòbil' : 'Desa-les al mòbil'}
+          </Button>
+          <Button color="link-gray" size="sm" onPress={onDismiss}>
+            Ara no
           </Button>
         </div>
       )}
