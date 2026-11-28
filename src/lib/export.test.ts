@@ -37,7 +37,7 @@ describe('collectPhotos', () => {
     const originals = ['FULL-PIXELS-OF-JULIA', 'FULL-PIXELS-OF-PAU'].map((marker) =>
       toHex(image(marker).bytes),
     );
-    expect(exported.map(({ bytes }) => toHex(bytes)).sort()).toEqual(originals.sort());
+    expect(exported.map(({ bytes }) => toHex(bytes)).sort()).toEqual([...originals].sort());
     expect(exported.every(({ fileName }) => /^\d{3}-.+\.jpg$/.test(fileName))).toBe(true);
   });
 
